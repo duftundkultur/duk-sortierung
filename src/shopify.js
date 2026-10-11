@@ -64,14 +64,14 @@ async function adminAll(env, query, path, variables = {}) {
 const Q_COLLECTIONS = `query SortCollections($after: String) {
   collections(first: 100, after: $after, sortKey: ID) {
     pageInfo { hasNextPage endCursor }
-    nodes { id legacyResourceId handle title sortOrder productsCount { count } ct: metafield(namespace: "custom", key: "collection_type") { value } }
+    nodes { id legacyResourceId handle title sortOrder productsCount { count } ct: metafield(namespace: "custom", key: "collection_type") { value } v: metafield(namespace: "custom", key: "vendor") { value } }
   }
 }`;
 
 // Alle Kollektionen mit Typ (vendor = Markenseite, series = Serie, edit = Editorial …)
 export async function fetchCollections(env) {
   return (await adminAll(env, Q_COLLECTIONS, 'collections')).map((c) => ({
-    id: c.id, legacyId: c.legacyResourceId, handle: c.handle, title: c.title, sortOrder: c.sortOrder, count: c.productsCount?.count ?? null, type: c.ct?.value || '',
+    id: c.id, legacyId: c.legacyResourceId, handle: c.handle, title: c.title, sortOrder: c.sortOrder, count: c.productsCount?.count ?? null, type: c.ct?.value || '', vendor: c.v?.value || '',
   }));
 }
 

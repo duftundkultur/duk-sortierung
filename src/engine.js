@@ -347,3 +347,82 @@ export function simulateMoves(current, moves) {
   for (const m of moves) { arr.splice(arr.indexOf(m.id), 1); arr.splice(Math.min(m.newPosition, arr.length), 0, m.id); }
   return arr;
 }
+
+/* ------------------------------------------------------------------------------------------- */
+/* Kategorieseiten                                                                              */
+/* ------------------------------------------------------------------------------------------- */
+// Aufbau: Schaufenster (ab 40 sichtbaren Produkten: je Marke eines, in der Markenfolge) → Markenblöcke in der
+// Markenfolge der Kategorie, im Block die Regel der Marke (Neu, Saison und Pin vorne im Block) → Ausverkauft
+// (in Markenfolge) → nicht sichtbar. Kuratierte Seiten (Geschenke): Reihenfolge bleibt, nur Ausverkauftes ans Ende.
+
+export const vendorKey = (v) => String(v || '').replace(/[’‘`´]/g, "'").toLowerCase().trim();
+
+export function sortCategory(input, catRule = {}, opts = {}) {
+  const settings = { ...SETTINGS, ...(opts.settings || {}) };
+  const today = opts.today || new Date().toISOString().slice(0, 10);
+  const notes = [];
+  const group = new Map();
+  const items = input.map((p, idx) => ({ ...p, idx, visible: p.status === 'ACTIVE' && p.published !== false }));
+  const soldOut = (p) => p.visible && !p.available;
+
+  if (catRule.mode === 'curated') {
+    const keep = items.filter((p) => p.visible && p.available);
+    const so = items.filter(soldOut);
+    const hidden = items.filter((p) => !p.visible);
+    keep.forEach((p) => group.set(p.id, 'Handauswahl'));
+    so.forEach((p) => group.set(p.id, 'Ausverkauft'));
+    hidden.forEach((p) => group.set(p.id, 'Nicht sichtbar'));
+    const order = [...keep, ...so, ...hidden];
+    return { order: order.map((p) => p.id), groups: Object.fromEntries(group), notes };
+  }
+
+  // Markenfolge: Liste aus der Regel, unbekannte Marken dahinter A–Z (mit Hinweis)
+  const brandOrder = (catRule.brandOrder || []).map(vendorKey);
+  const vendors = [...new Set(items.map((p) => p.vendor))];
+  const rank = (v) => { const i = brandOrder.indexOf(vendorKey(v)); return i < 0 ? brandOrder.length : i; };
+  vendors.sort((a, b) => rank(a) - rank(b) || compareText(a, b));
+  const unknown = vendors.filter((v) => rank(v) === brandOrder.length);
+  if (unknown.length && items.some((p) => p.visible && unknown.includes(p.vendor))) notes.push({ id: null, title: '', kind: 'marke-ohne-platz', msg: `Nicht in der Markenfolge, steht hinten: ${unknown.join(', ')}` });
+
+  // je Marke die Markenregel auf ihre Produkte dieser Kategorie
+  const blocks = [];
+  const soTail = [];
+  const hiddenTail = [];
+  for (const v of vendors) {
+    const subset = items.filter((p) => p.vendor === v);
+    const rule = (opts.brandRuleFor && opts.brandRuleFor(v)) || { pattern: 'C' };
+    const res = sortCollection(subset, rule, { today, kind: 'brand', settings });
+    const byId = new Map(subset.map((p) => [p.id, p]));
+    const block = [];
+    for (const id of res.order) {
+      const p = byId.get(id);
+      if (!p.visible) hiddenTail.push(p);
+      else if (!p.available) soTail.push(p);
+      else block.push(p);
+      group.set(id, `${v}${res.groups[id] && !/^Ausverkauft/.test(res.groups[id]) ? ` · ${res.groups[id]}` : ''}`);
+    }
+    blocks.push({ vendor: v, items: block });
+  }
+
+  // Schaufenster: Pin vor Bestseller vor dem ersten Produkt des Blocks; nur mit sauberem 6:7-Packshot
+  const showcase = [];
+  const visibleCount = items.filter((p) => p.visible && p.available).length;
+  const sc = catRule.showcase === false ? null : { min: settings.showcaseMin, size: settings.showcaseSize, ...(catRule.showcase || {}) };
+  if (sc && visibleCount >= sc.min) {
+    const good = (p) => !settings.imageRule || (p.image && goodImage(p.image, settings));
+    const pinned = (p) => typeof p.pinUntil === 'string' && p.pinUntil >= today;
+    for (const b of blocks) {
+      if (showcase.length >= sc.size) break;
+      const pick = b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => p.bestseller && good(p)) || b.items.find(good);
+      if (!pick) continue;
+      showcase.push(pick);
+      b.items = b.items.filter((p) => p !== pick);
+      group.set(pick.id, `Schaufenster · ${b.vendor}`);
+    }
+  }
+  for (const p of soTail) group.set(p.id, `Ausverkauft · ${p.vendor}`);
+  for (const p of hiddenTail) group.set(p.id, `Nicht sichtbar · ${p.vendor}`);
+  const order = [...showcase, ...blocks.flatMap((b) => b.items), ...soTail, ...hiddenTail];
+  if (order.length !== items.length || new Set(order.map((p) => p.id)).size !== items.length) throw new Error('Kategorie-Sortierung hat Produkte verloren oder verdoppelt');
+  return { order: order.map((p) => p.id), groups: Object.fromEntries(group), notes, showcase: showcase.length };
+}

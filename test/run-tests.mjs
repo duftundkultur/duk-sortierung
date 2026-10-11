@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { makeParser } from '../src/titles.js';
-import { sortCollection, planMoves, simulateMoves, seasonActive } from '../src/engine.js';
+import { sortCollection, sortCategory, planMoves, simulateMoves, seasonActive } from '../src/engine.js';
 
 let failed = 0;
 async function test(name, fn) {
@@ -99,6 +99,36 @@ await test('Gleiche Eingabe → gleiche Ausgabe (Ruhe statt Dauerwechsel)', () =
 });
 
 /* ------------------------------------------------------------------------------------------- */
+console.log('Kategorien');
+const V = (vendor, title, type, extra = {}) => P(title, type, { vendor, ...extra });
+await test('Markenblöcke in der Markenfolge, unbekannte Marke hinten mit Hinweis, Ausverkauft ans Seitenende', () => {
+  const list = [V('Zeta', 'Duftkerze Z', 'Duftkerze'), V('Diptyque', 'Duftkerze Baies', 'Duftkerze'), V('Trudon', 'Duftkerze Cire', 'Duftkerze', { available: false }), V('Trudon', 'Duftkerze Abd El Kader', 'Duftkerze'), V('Diptyque', 'Duftkerze Ambre', 'Duftkerze')];
+  const res = sortCategory(list, { mode: 'blocks', brandOrder: ['Trudon', 'Diptyque'] }, { today: '2026-10-11' });
+  assert.deepEqual(titles(res, list), ['Duftkerze Abd El Kader', 'Duftkerze Ambre', 'Duftkerze Baies', 'Duftkerze Z', 'Duftkerze Cire']);
+  assert.ok(res.notes.some((x) => x.kind === 'marke-ohne-platz'));
+});
+await test('Schaufenster ab 40 Produkten: je Marke eines (Bestseller vor dem ersten), dann die Blöcke', () => {
+  const list = [];
+  for (const b of ['A', 'B', 'C']) for (let i = 0; i < 15; i++) list.push(V(b, `Eau de Parfum ${b}${String(i).padStart(2, '0')}`, 'Eau de Parfum', { bestseller: b === 'B' && i === 7 }));
+  const res = sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B', 'C'] }, { today: '2026-10-11' });
+  const t = titles(res, list);
+  assert.deepEqual(t.slice(0, 4), ['Eau de Parfum A00', 'Eau de Parfum B07', 'Eau de Parfum C00', 'Eau de Parfum A01']);
+  assert.equal(res.showcase, 3);
+});
+await test('Neu steht vorne im eigenen Markenblock, nicht ganz oben', () => {
+  const list = [V('A', 'Eau de Parfum A1', 'Eau de Parfum'), V('B', 'Eau de Parfum B1', 'Eau de Parfum'), V('B', 'Eau de Parfum B2', 'Eau de Parfum', { tags: ['neu'] })];
+  assert.deepEqual(titles(sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B'] }, { today: '2026-10-11' }), list), ['Eau de Parfum A1', 'Eau de Parfum B2', 'Eau de Parfum B1']);
+});
+await test('Handauswahl bleibt, nur Ausverkauftes und Unsichtbares ans Ende', () => {
+  const list = [V('A', 'X', 'Tee', { available: false }), V('B', 'Y', 'Tee'), V('A', 'Z', 'Tee', { status: 'DRAFT' }), V('C', 'W', 'Tee')];
+  assert.deepEqual(titles(sortCategory(list, { mode: 'curated' }, { today: '2026-10-11' }), list), ['Y', 'W', 'X', 'Z']);
+});
+await test('Markennamen mit typografischem Apostroph werden erkannt', () => {
+  const list = [V('L’Artisan Parfumeur', 'Eau de Parfum L', 'Eau de Parfum'), V('D’Orsay', 'Eau de Parfum D', 'Eau de Parfum')];
+  assert.deepEqual(titles(sortCategory(list, { mode: 'blocks', brandOrder: ["D'Orsay", 'L’Artisan Parfumeur'] }, { today: '2026-10-11' }), list), ['Eau de Parfum D', 'Eau de Parfum L']);
+});
+
+/* ------------------------------------------------------------------------------------------- */
 console.log('Züge');
 await test('planMoves: Nachspielen ergibt die Zielreihenfolge, so wenige Züge wie nötig', () => {
   for (let t = 0; t < 2000; t++) {
@@ -127,8 +157,8 @@ if (fs.existsSync(`${FIX}/brands`)) {
   const realFetch = globalThis.fetch;
   globalThis.fetch = createMockFetch(shop);
   const kv = memoryKV();
-  const env = (mode) => ({ SHOPIFY_CLIENT_ID: 'id', SHOPIFY_CLIENT_SECRET: 'secret', ADMIN_TOKEN: 'geheim', MODE: mode, SORT: kv, JOB_POLL_MS: '5' });
-  const call = async (p, mode = 'dryrun') => { const r = await worker.fetch(new Request(`https://sort.test${p}`), env(mode)); return { status: r.status, body: await r.json() }; };
+  const env = (mode, cat = 'dryrun') => ({ SHOPIFY_CLIENT_ID: 'id', SHOPIFY_CLIENT_SECRET: 'secret', ADMIN_TOKEN: 'geheim', MODE: mode, CATEGORY_MODE: cat, SORT: kv, JOB_POLL_MS: '5' });
+  const call = async (p, mode = 'dryrun', cat = 'dryrun') => { const r = await worker.fetch(new Request(`https://sort.test${p}`), env(mode, cat)); return { status: r.status, body: await r.json() }; };
   const order = (h) => shop.collections.find((c) => c.handle === h).ids.slice();
 
   await test('/health ohne Token, meldet Betriebsart', async () => { const r = await call('/health'); assert.equal(r.body.configured, true); assert.equal(r.body.mode, 'dryrun'); });
@@ -149,15 +179,24 @@ if (fs.existsSync(`${FIX}/brands`)) {
     const again = await call('/admin/dryrun?token=geheim&only=trudon,diptyque');
     for (const x of again.body.results) { assert.equal(x.changed, false); assert.equal(x.externalChange, false); }
   });
-  await test('Ganzer Lauf (Zeitplan, live): alle Markenseiten, danach nichts mehr zu tun', async () => {
+  await test('Kategorien schreiben nur mit CATEGORY_MODE manual/live', async () => {
+    const before = order('eau-de-parfum');
+    const r = await call('/admin/run?token=geheim&only=eau-de-parfum&write=1', 'manual', 'dryrun');
+    assert.equal(r.body.results[0].written, undefined);
+    assert.deepEqual(order('eau-de-parfum'), before);
+    const r2 = await call('/admin/run?token=geheim&only=eau-de-parfum&write=1', 'dryrun', 'manual');
+    assert.equal(r2.body.results[0].verified, true, JSON.stringify(r2.body.results[0]).slice(0, 300));
+  });
+  await test('Ganzer Lauf (Zeitplan, live): alle Marken- und Kategorieseiten, danach nichts mehr zu tun', async () => {
     const waits = [];
-    await worker.scheduled({ cron: '20 4 * * *', scheduledTime: Date.now() }, env('live'), { waitUntil: (p) => waits.push(p) });
+    await worker.scheduled({ cron: '20 4 * * *', scheduledTime: Date.now() }, env('live', 'live'), { waitUntil: (p) => waits.push(p) });
     await Promise.all(waits);
     const rep = (await call('/admin/report?token=geheim')).body;
     assert.equal(rep.errors, 0, JSON.stringify(rep.results.filter((x) => x.error).slice(0, 3)));
-    assert.equal(rep.collections, 70);
+    assert.equal(rep.brands, 70);
+    assert.ok(rep.categories > 150, String(rep.categories));
     const again = await call('/admin/dryrun?token=geheim');
-    assert.equal(again.body.changed, 0);
+    assert.equal(again.body.changed, 0, JSON.stringify(again.body.results.filter((x) => x.changed).map((x) => x.handle)));
   });
   await test('Von außen umsortiert (Jedi, Hand) wird erkannt', async () => {
     const c = shop.collections.find((x) => x.handle === 'trudon'); c.ids.push(c.ids.shift());

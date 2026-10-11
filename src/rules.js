@@ -28,6 +28,8 @@ export const SETTINGS = {
   imageRule: true, // erstes Bild kein 6:7-Packshot → ans Ende des eigenen Blocks
   imageRatio: 6 / 7,
   imageTolerance: 0.01,
+  showcaseMin: 40, // Kategorieseiten ab so vielen sichtbaren, verfügbaren Produkten bekommen ein Schaufenster
+  showcaseSize: 8, // zwei Reihen
 };
 
 // Grundfolge der Produktarten (Muster C und für Arten ohne Block)
@@ -172,3 +174,77 @@ export const BRANDS = {
 };
 
 export const ruleFor = (handle) => BRANDS[handle] || { pattern: 'C', unknown: true };
+
+/* =========================================================================================== */
+/* Kategorieseiten                                                                              */
+/* =========================================================================================== */
+// Markenfolgen. „festgelegt“ = von Matthias entschieden (Memory „Sortierung“, Aug./Sept. 2026);
+// „wie live“ = aus der Handsortierung der Kategorie abgelesen (11.10.2026), braucht noch sein Ja.
+// Marken, die hier fehlen, stehen hinten (A–Z) und erscheinen im Bericht.
+export const BRAND_ORDERS = {
+  // festgelegt: kanonische Folge für Raumdüfte – kleine, bewusst geführte Marken vor dem Mengenblock; Rest wie live
+  raumduft: ['Trudon', 'Christian Tortu', 'Miller et Bertaux', 'Diptyque', 'Geodesis', 'Annick Goutal', 'Paul Smith', 'Esteban', 'Nicolaï',
+    'Culti Milano', 'Dr. Vranjes Firenze', 'Walde', 'Herb & Earth', 'Tierra Zen', 'L:A Bruket', 'Lothantique', 'Unifrom', 'Carthusia', 'Héritage Berbère', 'Castelbel', 'Aesop', 'L.T. Piver',
+    'Essential Parfums', 'La Compagnie de Provence'],
+  // festgelegt: wie Raumduft, aber Paul Smith vor Geodesis (Prestige, Bilder)
+  duftkerzen: ['Trudon', 'Christian Tortu', 'Miller et Bertaux', 'Diptyque', 'Paul Smith', 'Geodesis', 'Annick Goutal', 'Esteban', 'Nicolaï',
+    'Dr. Vranjes Firenze', 'Héritage Berbère', 'Castelbel', 'L.T. Piver', 'Essential Parfums'],
+  // festgelegt (Diptyque hinter Paul Smith, Tortu vor Carthusia)
+  diffusoren: ['Trudon', 'L:A Bruket', 'Paul Smith', 'Diptyque', 'Miller et Bertaux', 'Dr. Vranjes Firenze', 'Culti Milano', 'Geodesis', 'Esteban', 'Christian Tortu', 'Carthusia', 'Lothantique'],
+  // festgelegt
+  raeucherstaebchen: ['Unifrom', 'Tierra Zen', 'Herb & Earth', 'Esteban'],
+  // wie live (Kategorie Parfums)
+  parfum: ['Astrophil & Stella', 'Stora Skuggan', 'BDK Parfums', 'd’Annam', 'Versatile Paris', 'Essential Parfums', 'WienerBlut', 'Aesop', 'Diptyque', 'D’Orsay',
+    'Trudon', 'Meo Fusciuni', 'L’Artisan Parfumeur', 'Penhaligon’s', 'Obvious Parfums', 'Adamo Parfum', 'Altaia', 'Bon Parfumeur', 'Maître Parfumeur et Gantier',
+    'Eau d’Italie', 'Giardini di Toscana', 'Theodoros Kalotinis', 'Nēomirage', 'Héritage Berbère', 'Nicolaï', 'L’Atelier Parfum', 'J.B. Filz', 'Le Plein Été',
+    'Miller et Bertaux', 'Notch Code', 'Ciro', 'Fragrantarium', 'Claus Porto', 'Panier des Sens', 'Eau de Menton', 'Lothantique', 'Unifrom', 'Parfum d’Empire',
+    'L.T. Piver', 'Dries Van Noten', 'Carthusia'],
+  // wie live (Kategorie Pflege), Einzelstücke dahinter
+  pflege: ['Aesop', 'L:A Bruket', 'Diptyque', 'Trudon', 'Essential Parfums', 'Claus Porto', 'Panier des Sens', 'Walde', 'Marvis', 'Saltrain', 'La Compagnie de Provence',
+    'Lothantique', 'Carthusia', 'BDK Parfums', 'Dries Van Noten', 'Tadé', 'Calma Compania', 'Christian Tortu', 'Eau de Menton', 'Giardini di Toscana', 'Castelbel', 'L.T. Piver'],
+  // wie live (Kategorie Home)
+  home: ['Uchino', 'Lapuan Kankurit', 'Suite702', 'Original Home', 'Diptyque', 'Essential Parfums', 'Simone et George', 'Au Maison', 'Duft und Kultur', 'Ottomania',
+    'Chi Chi Fan', 'Archivist Gallery', 'L:A Bruket', 'Esteban', 'Green Petition', 'Tadé', 'Yup in de boom', 'Inge Glasmanufaktur'],
+};
+
+// Welche Welt eine Produktart ist (für Kategorien ohne eigene Markenfolge: Mehrheit der Produkte entscheidet)
+const DOMAIN_TYPES = {
+  parfum: ['Discovery Set', 'Eau de Parfum', 'Extrait de Parfum', 'Parfum', 'Eau de Toilette', 'Eau de Cologne', 'Eau Fraîche', 'Haarparfum', 'Hair & Body Mist',
+    'Roll-on Parfum', 'Festes Parfum', 'Parfum Refill', 'Eau de Parfum Set'],
+  raumduft: ['Duftkerze', 'Duftkerzen Refill', 'Duftkerzen Zubehör', 'Diffusor', 'Diffusor Refill', 'Elektrischer Diffusor', 'Duftkartusche', 'Rattanstäbchen',
+    'Raumspray', 'Textilspray', 'Schrankduft', 'Autoduft', 'Duftöl', 'Räucherstäbchen', 'Räucherwerk', 'Räucherharz', 'Räuchermittelhalter', 'Saunaöl', 'Staubsaugerpulver'],
+  home: ['Stabkerze', 'Stumpenkerze', 'Streichholz', 'Hamamtuch', 'Handtuch', 'Strandtuch', 'Strandkissen', 'Bademantel', 'Decke', 'Fächer', 'Kulturbeutel', 'Wärmflasche',
+    'Augenkissen', 'Tee', 'Adventskalender', 'Gutschein', 'Baumschmuck', 'Berberteppich', 'Grußkarte', 'Waschmittel', 'Geschirrspülmittel', 'Universalreiniger',
+    'Holz- & Lederpflege', 'Spülbürste'],
+};
+const domainOf = (type) => Object.keys(DOMAIN_TYPES).find((d) => DOMAIN_TYPES[d].includes(type)) || 'pflege';
+
+export const CATEGORY_RULES = {
+  // Handauswahl: Reihenfolge bleibt, nur Ausverkauftes ans Ende
+  curated: ['kategorie-geschenke-bis-10', 'kategorie-geschenke-bis-25', 'kategorie-geschenke-bis-50', 'kategorie-geschenke-bis-100', 'kategorie-geschenke-bis-200',
+    'kategorie-geschenke-fur-sie', 'kategorie-geschenke-fur-ihn', 'kategorie-geschenke-fur-alle', 'damenduefte', 'herrenduefte', 'weihnachten'],
+  // nicht anfassen: Shopify sortiert selbst (neueste zuerst) bzw. nichts zu sortieren
+  skip: ['neuheiten', 'nischenduft-neuheiten', 'gutscheine'],
+  // Kategorie → Markenfolge (sonst nach der Mehrheit der Produktarten)
+  order: { parfums: 'parfum', raumduefte: 'raumduft', duftkerzen: 'duftkerzen', diffusoren: 'diffusoren', raeucherstaebchen: 'raeucherstaebchen', pflege: 'pflege', home: 'home' },
+};
+
+// Regel für eine Kategorie-Kollektion: { mode: 'blocks'|'curated'|'skip', orderName, brandOrder }
+export function categoryRuleFor(handle, products = []) {
+  if (CATEGORY_RULES.skip.includes(handle)) return { mode: 'skip' };
+  if (CATEGORY_RULES.curated.includes(handle)) return { mode: 'curated' };
+  let orderName = CATEGORY_RULES.order[handle];
+  if (!orderName) {
+    const count = (pred) => products.filter(pred).length;
+    const half = products.length / 2;
+    if (count((p) => p.type === 'Duftkerze') > half) orderName = 'duftkerzen';
+    else if (count((p) => p.type === 'Diffusor') > half) orderName = 'diffusoren';
+    else if (count((p) => p.type === 'Räucherstäbchen') > half) orderName = 'raeucherstaebchen';
+    else {
+      const tally = {};
+      for (const p of products) { const d = domainOf(p.type); tally[d] = (tally[d] || 0) + 1; }
+      orderName = Object.entries(tally).sort((a, b) => b[1] - a[1])[0]?.[0] || 'parfum';
+    }
+  }
+  return { mode: 'blocks', orderName, brandOrder: BRAND_ORDERS[orderName] };
+}

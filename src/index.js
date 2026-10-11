@@ -1,17 +1,19 @@
 /*
   DUK Sortierung – Cloudflare Worker
   ------------------------------------------------------------------------------------------------
-  Sortiert die Markenseiten (Kollektionen mit custom.collection_type = vendor) nach der Regeldatei
-  (src/rules.js) und den allgemeinen Regeln: Pin mit Ablaufdatum → Neu → Saison → Regelplatz → Ausverkauft ans Ende.
+  Sortiert die Markenseiten (custom.collection_type = vendor) und die Kategorieseiten („Kategorie: …“) nach der
+  Regeldatei (src/rules.js) und den allgemeinen Regeln: Pin mit Ablaufdatum → Neu → Saison → Regelplatz → Ausverkauft ans Ende.
+  Kategorien: Schaufenster (ab 40 Produkten, je Marke eines) → Markenblöcke in der Markenfolge → Ausverkauft.
   Geschrieben wird nur, was sich geändert hat, mit möglichst wenigen Zügen, danach Gegencheck.
 
-  Betriebsart (Variable MODE in wrangler.toml):
+  Betriebsart (MODE für Markenseiten, CATEGORY_MODE für Kategorieseiten, in wrangler.toml):
     dryrun   nur rechnen und berichten, nie schreiben (Standard)
     manual   der Zeitplan rechnet nur; /admin/run?write=1 darf schreiben (für den ersten Test an einzelnen Marken)
     live     der Zeitplan schreibt jeden Morgen
 
   Admin (?token=ADMIN_TOKEN, im Browser aufrufbar):
     /admin/dryrun?only=diptyque,trudon      rechnen, nichts schreiben; mit only zusätzlich die volle Zielliste
+    /admin/dryrun?scope=categories          nur Kategorieseiten (scope=brands: nur Markenseiten)
     /admin/run?only=…&write=1               rechnen und schreiben (nur bei MODE manual oder live)
     /admin/report                           letzter Bericht des Zeitplans
     /admin/scopes                           welche Rechte hat die App im Shop (read_products, write_products)?
@@ -24,7 +26,8 @@
 import { runSort, viennaDate } from './run.js';
 import { admin } from './shopify.js';
 
-const DEFAULTS = { SHOPIFY_SHOP: '1rbajs-ae.myshopify.com', MODE: 'dryrun' };
+const DEFAULTS = { SHOPIFY_SHOP: '1rbajs-ae.myshopify.com', MODE: 'dryrun', CATEGORY_MODE: 'dryrun' };
+const MODES = ['dryrun', 'manual', 'live'];
 const NEEDED = ['SHOPIFY_CLIENT_ID', 'SHOPIFY_CLIENT_SECRET', 'ADMIN_TOKEN'];
 
 function config(raw) {
@@ -32,7 +35,8 @@ function config(raw) {
   for (const [k, v] of Object.entries(env)) if (typeof v === 'string') env[k] = v.trim();
   for (const [k, v] of Object.entries(DEFAULTS)) if (!env[k]) env[k] = v;
   if (!/^[a-z0-9-]+\.myshopify\.com$/.test(env.SHOPIFY_SHOP)) env.SHOPIFY_SHOP = DEFAULTS.SHOPIFY_SHOP;
-  if (!['dryrun', 'manual', 'live'].includes(env.MODE)) env.MODE = 'dryrun';
+  if (!MODES.includes(env.MODE)) env.MODE = 'dryrun';
+  if (!MODES.includes(env.CATEGORY_MODE)) env.CATEGORY_MODE = 'dryrun';
   return env;
 }
 
@@ -46,6 +50,8 @@ function safeEqual(a, b) {
 }
 const adminAllowed = (url, env) => Boolean(env.ADMIN_TOKEN) && safeEqual(url.searchParams.get('token') || '', env.ADMIN_TOKEN);
 const onlyParam = (url) => { const v = url.searchParams.get('only'); return v ? v.split(',').map((s) => s.trim()).filter(Boolean) : null; };
+const scopeParam = (url) => (['brands', 'categories'].includes(url.searchParams.get('scope')) ? url.searchParams.get('scope') : 'all');
+const canWrite = (mode) => mode === 'manual' || mode === 'live';
 
 export default {
   async fetch(request, rawEnv) {
@@ -58,18 +64,19 @@ export default {
         if (!env.SORT) missing.push('SORT (KV)');
         const last = env.SORT ? await env.SORT.get('report:latest', 'json') : null;
         return json({
-          ok: true, configured: missing.length === 0, missing, shop: env.SHOPIFY_SHOP, mode: env.MODE, today: viennaDate(),
+          ok: true, configured: missing.length === 0, missing, shop: env.SHOPIFY_SHOP, mode: env.MODE, categoryMode: env.CATEGORY_MODE, today: viennaDate(),
           lastRun: last ? { at: last.at, trigger: last.trigger, write: last.write, collections: last.collections, changed: last.changed, written: last.written, errors: last.errors } : null,
         });
       }
       if (path.startsWith('/admin/')) {
         if (!adminAllowed(url, env)) return json({ error: 'forbidden' }, 403);
-        if (path === '/admin/dryrun') { const only = onlyParam(url); return json(await runSort(env, { write: false, only, detail: Boolean(only), trigger: 'dryrun' })); }
+        if (path === '/admin/dryrun') { const only = onlyParam(url); return json(await runSort(env, { only, scope: scopeParam(url), detail: Boolean(only), trigger: 'dryrun' })); }
         if (path === '/admin/run') {
-          const write = url.searchParams.get('write') === '1';
-          if (write && env.MODE === 'dryrun') return json({ error: 'MODE ist dryrun – Schreiben ist ausgeschaltet. In wrangler.toml MODE = "manual" setzen.' }, 409);
+          const wanted = url.searchParams.get('write') === '1';
+          const write = { brands: wanted && canWrite(env.MODE), categories: wanted && canWrite(env.CATEGORY_MODE) };
+          if (wanted && !write.brands && !write.categories) return json({ error: 'Schreiben ist ausgeschaltet (MODE und CATEGORY_MODE stehen auf dryrun). In wrangler.toml auf "manual" setzen.' }, 409);
           const only = onlyParam(url);
-          return json(await runSort(env, { write, only, detail: Boolean(only), trigger: 'manual' }));
+          return json(await runSort(env, { write, only, scope: scopeParam(url), detail: Boolean(only), trigger: 'manual' }));
         }
         if (path === '/admin/scopes') {
           const d = await admin(env, 'query SortScopes { currentAppInstallation { accessScopes { handle } } }');
@@ -88,6 +95,6 @@ export default {
 
   async scheduled(event, rawEnv, ctx) {
     const env = config(rawEnv);
-    ctx.waitUntil(runSort(env, { write: env.MODE === 'live', trigger: 'cron' }).catch((e) => console.error('[duk-sortierung] cron', e)));
+    ctx.waitUntil(runSort(env, { write: { brands: env.MODE === 'live', categories: env.CATEGORY_MODE === 'live' }, trigger: 'cron' }).catch((e) => console.error('[duk-sortierung] cron', e)));
   },
 };

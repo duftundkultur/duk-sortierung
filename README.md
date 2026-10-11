@@ -1,6 +1,6 @@
 # DUK Sortierung
 
-Cloudflare Worker, der die Markenseiten im Shopify-Shop von Duft und Kultur nach festen Regeln sortiert. Er ersetzt die Handsortierung und Jedi (Collection Sort).
+Cloudflare Worker, der die Marken- und Kategorieseiten im Shopify-Shop von Duft und Kultur nach festen Regeln sortiert. Er ersetzt die Handsortierung und Jedi (Collection Sort).
 
 - **Regeldatei:** `src/rules.js`. Darin stehen das Muster und die Blockfolge je Marke. Claude pflegt sie; der Deploy läuft automatisch.
 - **Zeitliches:** Pin, Neu und Saison steuert das Team im Shopify-Admin über Tags und das Feld „Pin bis“, ohne Code.
@@ -25,9 +25,22 @@ Er sortiert jede Kollektion mit `custom.collection_type = vendor`, also jede Mar
 
 Geschrieben wird nur, wenn sich etwas geändert hat. Der Motor schickt dabei möglichst wenige Züge, höchstens 250 pro Aufruf, und prüft die Reihenfolge danach Platz für Platz. Hat jemand seit dem letzten Schreiben von außen umsortiert, etwa Jedi oder eine Hand, meldet der Bericht `externalChange`.
 
+## Kategorieseiten
+
+Alle Kollektionen mit dem Titel „Kategorie: …“, also Produktarten, Duftfamilien, Primäre Noten, Geschenke und Neuheiten.
+
+- **Markenblöcke:** Die Marken stehen als Blöcke in der Markenfolge der Kategorie (`BRAND_ORDERS` in `src/rules.js`). Im Block gilt die Regel der Marke. Neu, Saison und Pin stehen vorne im eigenen Block.
+- **Schaufenster:** Ab 40 sichtbaren Produkten stehen vorne zwei Reihen, also 8 Plätze, mit je einem Produkt pro Marke. Gewählt wird der Pin, sonst ein Bestseller, sonst das erste Produkt mit 6:7-Packshot.
+- **Ausverkauft** steht am Ende der Seite, in Markenfolge. Dahinter folgt, was nicht sichtbar ist.
+- **Welche Markenfolge gilt:** Für Parfums, Raumdüfte, Duftkerzen, Diffusoren, Räucherstäbchen, Pflege und Home ist sie fest hinterlegt. Alle anderen Kategorien, auch Duftfamilien und Noten, nehmen die Folge der Welt, aus der die meisten ihrer Produkte stammen.
+- **Handauswahl:** Bei den Geschenken, Damen- und Herrendüften und Weihnachten bleibt die Reihenfolge, nur Ausverkauftes rückt ans Ende.
+- **Nicht angefasst:** Die Neuheiten sortiert Shopify selbst, neueste zuerst. Die Gutscheine bleiben ebenfalls, wie sie sind.
+
+Kategorieseiten haben eine eigene Betriebsart, `CATEGORY_MODE`. Jedi sortiert dort noch: erst in Jedi auf *Inactive* stellen, dann umschalten.
+
 ## Betriebsart
 
-Die Betriebsart steht in `wrangler.toml` unter `[vars] MODE`.
+Die Betriebsart steht in `wrangler.toml` unter `[vars]`: `MODE` für die Markenseiten, `CATEGORY_MODE` für die Kategorieseiten.
 
 | MODE | Zeitplan (täglich 04:20 UTC) | `/admin/run?write=1` |
 |---|---|---|
@@ -42,6 +55,7 @@ Alle Admin-Endpunkte brauchen `?token=ADMIN_TOKEN` und lassen sich im Browser au
 - `/health` — Stand, Betriebsart, letzter Lauf
 - `/admin/dryrun` — alle Markenseiten rechnen, nichts schreiben
 - `/admin/dryrun?only=diptyque,trudon` — dazu die volle Zielliste je Marke, mit alter Position und Gruppe
+- `/admin/dryrun?scope=categories` — nur die Kategorieseiten (`scope=brands`: nur die Markenseiten)
 - `/admin/run?only=trudon&write=1` — rechnen und schreiben (ab MODE `manual`)
 - `/admin/report` — Bericht des letzten Zeitplan-Laufs
 - `/admin/scopes` — welche Rechte die App im Shop hat
@@ -71,10 +85,12 @@ Alle Admin-Endpunkte brauchen `?token=ADMIN_TOKEN` und lassen sich im Browser au
 npm test                                   # Einheitstests + ganzer Worker gegen nachgebautes Shopify
 FIXTURES=<Abzug> npm run dryrun            # Trockenlauf gegen einen Storefront-Abzug, Übersicht je Marke
 FIXTURES=<Abzug> npm run dryrun -- diptyque --show   # volle Zielliste einer Marke
+FIXTURES=<Abzug> node scripts/dryrun-cats.mjs [handle] [--show]   # Kategorieseiten
 ```
 
 Der Storefront-Abzug liegt nicht im Repo (`fixtures/` ist ignoriert). Er hat diesen Aufbau:
 
 - `brands/<handle>.json` — `/collections/<handle>/products.json`, in der Live-Reihenfolge
 - `series/<handle>.json` — Produkt-IDs je Serien-Kollektion
+- `cats/<handle>.json` — Kategorie-Kollektionen in der Live-Reihenfolge (verkürzt: id, title, vendor, type, avail, tags, img)
 - `bestseller_ids.json` — IDs mit dem Badge „Bestseller“

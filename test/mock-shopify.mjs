@@ -20,7 +20,13 @@ export function loadShop(dir) {
         badges: bestsellers.has(String(p.id)) ? { value: '["Bestseller"]' } : null, pin: null,
       });
     }
-    collections.push({ id: `gid://shopify/Collection/${cid++}`, handle, title: `Brand: ${list[0]?.vendor || handle}`, sortOrder: 'MANUAL', type: 'vendor', ids: list.map((p) => String(p.id)) });
+    collections.push({ id: `gid://shopify/Collection/${cid++}`, handle, title: `Brand: ${list[0]?.vendor || handle}`, vendor: list[0]?.vendor || '', sortOrder: 'MANUAL', type: 'vendor', ids: list.map((p) => String(p.id)) });
+  }
+  if (fs.existsSync(path.join(dir, 'cats'))) {
+    for (const f of fs.readdirSync(path.join(dir, 'cats')).sort()) {
+      const ids = J(`cats/${f}`).map((p) => String(p.id)).filter((id) => products.has(id));
+      if (ids.length) collections.push({ id: `gid://shopify/Collection/${cid++}`, handle: f.replace(/\.json$/, ''), title: `Kategorie: ${f.replace(/\.json$/, '')}`, sortOrder: 'BEST_SELLING', type: 'category', ids });
+    }
   }
   for (const f of fs.readdirSync(path.join(dir, 'series')).sort()) {
     collections.push({ id: `gid://shopify/Collection/${cid++}`, handle: f.replace(/\.json$/, ''), title: `Serie: ${f}`, sortOrder: 'ALPHA_ASC', type: 'series', ids: J(`series/${f}`).map(String) });
@@ -41,7 +47,7 @@ export function createMockFetch(shop) {
     shop.calls.push(name);
     let data;
     if (name === 'SortCollections') {
-      data = { collections: page(shop.collections.map((c) => ({ id: c.id, legacyResourceId: c.id.split('/').pop(), handle: c.handle, title: c.title, sortOrder: c.sortOrder, productsCount: { count: c.ids.length }, ct: { value: c.type } })), variables.after, 100) };
+      data = { collections: page(shop.collections.map((c) => ({ id: c.id, legacyResourceId: c.id.split('/').pop(), handle: c.handle, title: c.title, sortOrder: c.sortOrder, productsCount: { count: c.ids.length }, ct: { value: c.type }, v: c.type === 'vendor' ? { value: c.vendor } : null })), variables.after, 100) };
     } else if (name === 'SortSeries') {
       data = { collections: page(shop.collections.filter((c) => c.type === 'series').map((c) => ({ handle: c.handle, ct: { value: 'series' }, products: { nodes: c.ids.map((id) => ({ legacyResourceId: id })) } })), variables.after, 10) };
     } else if (name === 'SortCollectionProducts') {
