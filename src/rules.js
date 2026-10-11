@@ -193,12 +193,13 @@ export const BRAND_ORDERS = {
   diffusoren: ['Trudon', 'L:A Bruket', 'Paul Smith', 'Diptyque', 'Miller et Bertaux', 'Dr. Vranjes Firenze', 'Culti Milano', 'Geodesis', 'Esteban', 'Christian Tortu', 'Carthusia', 'Lothantique'],
   // festgelegt
   raeucherstaebchen: ['Unifrom', 'Tierra Zen', 'Herb & Earth', 'Esteban'],
-  // wie live (Kategorie Parfums)
-  parfum: ['Astrophil & Stella', 'Stora Skuggan', 'BDK Parfums', 'd’Annam', 'Versatile Paris', 'Essential Parfums', 'WienerBlut', 'Aesop', 'Diptyque', 'D’Orsay',
+  // wie live (Kategorie Parfums), dazu Matthias 11.10.: L.T. Piver und Dries Van Noten weit nach vorne (neu, spannend, gute Moods,
+  // kleines Sortiment – sonst sieht man ewig nichts anderes), Carthusia weit nach hinten
+  parfum: ['L.T. Piver', 'Dries Van Noten', 'Astrophil & Stella', 'Stora Skuggan', 'BDK Parfums', 'd’Annam', 'Versatile Paris', 'Essential Parfums', 'WienerBlut', 'Aesop', 'Diptyque', 'D’Orsay',
     'Trudon', 'Meo Fusciuni', 'L’Artisan Parfumeur', 'Penhaligon’s', 'Obvious Parfums', 'Adamo Parfum', 'Altaia', 'Bon Parfumeur', 'Maître Parfumeur et Gantier',
     'Eau d’Italie', 'Giardini di Toscana', 'Theodoros Kalotinis', 'Nēomirage', 'Héritage Berbère', 'Nicolaï', 'L’Atelier Parfum', 'J.B. Filz', 'Le Plein Été',
     'Miller et Bertaux', 'Notch Code', 'Ciro', 'Fragrantarium', 'Claus Porto', 'Panier des Sens', 'Eau de Menton', 'Lothantique', 'Unifrom', 'Parfum d’Empire',
-    'L.T. Piver', 'Dries Van Noten', 'Carthusia'],
+    'Carthusia'],
   // wie live (Kategorie Pflege), Einzelstücke dahinter
   pflege: ['Aesop', 'L:A Bruket', 'Diptyque', 'Trudon', 'Essential Parfums', 'Claus Porto', 'Panier des Sens', 'Walde', 'Marvis', 'Saltrain', 'La Compagnie de Provence',
     'Lothantique', 'Carthusia', 'BDK Parfums', 'Dries Van Noten', 'Tadé', 'Calma Compania', 'Christian Tortu', 'Eau de Menton', 'Giardini di Toscana', 'Castelbel', 'L.T. Piver'],
