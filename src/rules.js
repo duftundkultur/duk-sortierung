@@ -20,7 +20,7 @@
 export const SETTINGS = {
   neuTag: 'neu', // gesetzt/entfernt von Shopify Flow (42 Tage nach Veröffentlichung)
   neuRefills: false, // Refills mit „neu“ bleiben bei ihrem Mutterprodukt statt ganz vorne
-  pinTag: 'pin', // Hinweis-Tag; wirksam ist das Datum im Feld „Pin bis“ (custom.pin_bis)
+  pinTag: 'pin', // Hinweis-Tag; wirksam ist das Datum im Feld „Pin bis“ (custom.pin_bis, Datum, angelegt 11.10.2026)
   seasons: {
     // Tag → Fenster MM-DD bis MM-DD (Ende Weihnachten noch offen: 24.12. oder 6.1.; Sommer noch nicht festgelegt)
     'saison-weihnachten': { from: '11-01', to: '12-24' },
@@ -145,13 +145,13 @@ export const BRANDS = {
 
   /* ---------- Muster B: Typ-Blöcke („wie live“, Bestätigung offen) ---------- */
   esteban: { pattern: 'B', blocks: ['Duftkerze', 'Diffusor', 'Raumspray', 'Duftöl', 'Räucherstäbchen', 'Staubsaugerpulver', 'Duftkerzen Refill', 'Diffusor Refill'] },
-  'dr-vranjes-firenze': { pattern: 'B', blocks: ['Diffusor', 'Duftkerze', 'Rattanstäbchen', 'Diffusor Refill'] },
+  'dr-vranjes-firenze': { pattern: 'B', lead: ['Rosso Nobile'] /* Zugpferd */, blocks: ['Diffusor', 'Duftkerze', 'Rattanstäbchen', 'Diffusor Refill'] },
   nicolai: { pattern: 'B', blocks: ['Eau de Parfum', 'Eau de Toilette', 'Eau Fraîche', 'Duftkerze', 'Raumspray'] },
   carthusia: { pattern: 'B', blocks: ['Eau de Parfum', 'Roll-on Parfum', 'Sonnencreme', 'After Sun', 'Bodylotion', 'Duschöl', 'Diffusor', 'Diffusor Refill'] },
   lothantique: { pattern: 'B', blocks: ['Feste Seife', 'Flüssigseife', 'Eau de Toilette', 'Diffusor', 'Raumspray', 'Diffusor Refill'] },
   'tierra-zen': { pattern: 'B', blocks: ['Räucherstäbchen', 'Räucherwerk', 'Räucherharz', 'Räuchermittelhalter'] },
   'paul-smith': { pattern: 'B', blocks: ['Duftkerze', 'Diffusor', 'Diffusor Refill'] },
-  'giardini-di-toscana': { pattern: 'B', blocks: ['Eau de Parfum', 'Bodylotion'] },
+  'giardini-di-toscana': { pattern: 'B', lead: ['Bianco Latte'] /* Zugpferd */, blocks: ['Eau de Parfum', 'Bodylotion'] },
   'la-compagnie-de-provence': { pattern: 'B', blocks: ['Flüssigseife', 'Handcreme', 'Seifen Refill'] },
   unifrom: { pattern: 'B', blocks: ['Roll-on Parfum', 'Räucherstäbchen'] },
   'versatile-paris': { // nach Kategorie (Matthias, 11.10.): Extraits → Roll-on Eau de Parfum → Roll-on Extrait
@@ -168,10 +168,12 @@ export const BRANDS = {
   'obvious-parfums': { pattern: 'C', seriesLast: true },
   'parfum-dempire': { pattern: 'C' }, // live reines A–Z, L'Héritage Corse nicht gruppiert
 
+  'annick-goutal': { pattern: 'C', lead: ['Noël — Une Forêt d’Or'] }, // Zugpferd, auch außerhalb der Weihnachtszeit (Matthias 11.10.)
+
   /* ---------- Muster C: alle übrigen Marken (ausdrücklich, damit der Bericht nicht nachfragt) ---------- */
   ...Object.fromEntries([
     'd-orsay', 'bon-parfumeur', 'meo-fusciuni', 'wienerblut', 'stora-skuggan', 'neomirage', 'astrophil-stella',
-    'theodoros-kalotinis', 'altaia', 'ciro', 'fragrantarium', 'maitre-parfumeur-et-gantier', 'eau-d-italie', 'annick-goutal', 'le-plein-ete', 'j-b-filz', 'notch-code',
+    'theodoros-kalotinis', 'altaia', 'ciro', 'fragrantarium', 'maitre-parfumeur-et-gantier', 'eau-d-italie', 'le-plein-ete', 'j-b-filz', 'notch-code',
     'ottomania', 'chi-chi-fan', 'mariage-freres', 'uchino', 'original-home', 'herb-earth', 'marvis', 'saltrain', 'archivist-gallery',
     'lapuan-kankurit', 'castelbel', 'eau-de-menton', 'calma-compania', 'green-petition', 'duft-und-kultur', 'yup-in-de-boom', 'inge-glasmanufaktur',
   ].map((h) => [h, { pattern: 'C' }])),
