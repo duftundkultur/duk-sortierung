@@ -1,0 +1,349 @@
+// Sortier-Motor: reine Funktion, kein Shopify-Zugriff.
+// Eingabe: Produkte einer Kollektion (in der aktuellen Reihenfolge) + Regel der Marke.
+// Ausgabe: Zielreihenfolge + Begründung je Produkt + Hinweise für den Bericht.
+//
+// Ablauf
+//   1. Regelordnung je Muster (A Serien, B Typ-Blöcke, C A–Z) – Blöcke, im Block nach Duftname
+//   2. Allgemeine Regeln (Teil 1, entschieden 11.10.2026) darüber:
+//      Pin mit Ablaufdatum → Neu (Tag „neu“) → Saison → Regelplatz → … → Ausverkauft ans Ende
+//      Ausverkauft schlägt Neu und Pin. Nicht sichtbare Produkte bleiben am Ende ihres Blocks.
+
+import { makeParser, compareText, isFragrance, isDiscovery, FRAGRANCE_TYPES } from './titles.js';
+import { SETTINGS, TYPE_ORDER } from './rules.js';
+
+const STATUS_RANK = { ACTIVE: 0, UNLISTED: 2, DRAFT: 4, ARCHIVED: 5 };
+
+/* ------------------------------------------------------------------------------------------- */
+/* Hilfen                                                                                       */
+/* ------------------------------------------------------------------------------------------- */
+
+const typeRank = (type) => { const i = TYPE_ORDER.indexOf(type); return i < 0 ? TYPE_ORDER.length : i; };
+
+function visRank(p, settings) {
+  if (p.status !== 'ACTIVE') return STATUS_RANK[p.status] ?? 6;
+  if (!p.published) return 3;
+  if (settings.imageRule && p.image && !goodImage(p.image, settings)) return 1;
+  if (settings.imageRule && !p.image) return 1;
+  return 0;
+}
+const goodImage = (img, settings) => img && img.w > 0 && img.h > 0 && Math.abs(img.w / img.h - settings.imageRatio) <= settings.imageTolerance;
+
+function sizeRank(parsed) {
+  if (parsed.large) return [1, parsed.size || 0];
+  if (parsed.mini) return [2, -(parsed.size || 0)];
+  return [0, 0];
+}
+
+// Saisonfenster „MM-DD“ bis „MM-DD“, auch über den Jahreswechsel (11-01 … 01-06)
+export function seasonActive(win, today) {
+  if (!win) return false;
+  const md = today.slice(5, 10);
+  return win.from <= win.to ? md >= win.from && md <= win.to : md >= win.from || md <= win.to;
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* Blöcke                                                                                       */
+/* ------------------------------------------------------------------------------------------- */
+
+// Blockangabe in der Regeldatei: 'Duftkerze' | ['Eau de Parfum', 'Extrait de Parfum'] | { types, mini, series, title, … }
+function normBlock(spec, i) {
+  if (typeof spec === 'string') spec = { types: [spec] };
+  else if (Array.isArray(spec)) spec = { types: spec };
+  const b = {
+    i,
+    label: spec.label || null,
+    types: spec.types ? new Set(spec.types) : null,
+    typeList: spec.types || [],
+    mini: spec.mini,
+    series: spec.series ? [].concat(spec.series) : null,
+    title: spec.title ? new RegExp(spec.title, 'i') : null,
+    discovery: spec.discovery,
+    fragrance: spec.fragrance,
+    notInSeries: spec.notInSeries,
+    any: spec.any,
+    lead: spec.lead || [],
+    order: spec.order || 'scent', // scent | type | title | live
+    typeOrder: spec.typeOrder || null,
+    max: spec.max || null,
+  };
+  if (!b.label) {
+    b.label = b.series ? `Serie ${b.series.join('/')}` : b.discovery ? 'Discovery Sets' : b.typeList.length ? b.typeList.join(' + ') : b.fragrance ? 'Düfte' : 'Weitere';
+    if (b.mini === true) b.label += ' (klein)';
+    if (b.title) b.label += ` „${spec.title}“`;
+  }
+  return b;
+}
+
+function matches(b, p, ctx) {
+  let score = 0;
+  if (b.types) { if (!b.types.has(p.type)) return -1; score += 1; }
+  if (b.mini !== undefined) { if (Boolean(p.parsed.mini) !== b.mini) return -1; score += 1; }
+  if (b.series) { if (!p.series.some((s) => b.series.includes(s))) return -1; score += 2; }
+  if (b.title) { if (!b.title.test(p.title.replace(/\u00ad/g, ''))) return -1; score += 2; }
+  if (b.discovery !== undefined) { if (isDiscovery(p.type, p.title) !== b.discovery) return -1; score += 1; }
+  if (b.fragrance) { if (!isFragrance(p.type)) return -1; }
+  if (b.notInSeries) { if (p.series.some((s) => ctx.brandSeries.has(s))) return -1; score += 1; }
+  if (!b.types && !b.series && !b.title && b.discovery === undefined && !b.fragrance && !b.any) return -1;
+  return score;
+}
+
+function blockComparator(b, settings) {
+  const lead = b.lead.map((s) => s.toLowerCase());
+  const leadRank = (p) => { const s = p.parsed.scent.toLowerCase(); const i = lead.findIndex((l) => s === l || s.startsWith(`${l} `)); return i < 0 ? lead.length : i; };
+  const inTypes = (t) => { const i = b.typeList.indexOf(t); return i < 0 ? b.typeList.length : i; };
+  const typeOrderRank = (t) => { if (!b.typeOrder) return 0; const i = b.typeOrder.indexOf(t); return i < 0 ? b.typeOrder.length : i; };
+  const conc = (t) => { if (b.typeList.length > 1) return inTypes(t); const i = FRAGRANCE_TYPES.indexOf(t); return i < 0 ? FRAGRANCE_TYPES.length + typeRank(t) : i; };
+  return (x, y) => {
+    const keys = [
+      [x.vis, y.vis],
+      [x.isDS ? 0 : 1, y.isDS ? 0 : 1],
+      [typeOrderRank(x.type), typeOrderRank(y.type)],
+      [leadRank(x), leadRank(y)],
+      [x.seriesRank || 0, y.seriesRank || 0],
+    ];
+    if (b.order === 'live') keys.push([x.idx, y.idx]);
+    keys.push([x.parsed.refill ? 1 : 0, y.parsed.refill ? 1 : 0]); // im Block erst die Produkte, dann ihre Füllungen
+    if (b.order === 'type') keys.push([inTypes(x.type), inTypes(y.type)]);
+    for (const [a, c] of keys) if (a !== c) return a - c;
+    if (b.order === 'title') return compareText(x.title, y.title) || x.idx - y.idx;
+    const s = compareText(x.parsed.scent, y.parsed.scent); if (s) return s;
+    const la = x.parsed.line ? 1 : 0, lb = y.parsed.line ? 1 : 0; if (la !== lb) return la - lb;
+    if (x.parsed.line !== y.parsed.line) return compareText(x.parsed.line, y.parsed.line);
+    const ca = conc(x.type), cb = conc(y.type); if (ca !== cb) return ca - cb;
+    const [sa, va] = sizeRank(x.parsed), [sb, vb] = sizeRank(y.parsed); if (sa !== sb) return sa - sb; if (va !== vb) return va - vb;
+    return compareText(x.title, y.title) || x.idx - y.idx;
+  };
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* Muster                                                                                       */
+/* ------------------------------------------------------------------------------------------- */
+
+function blocksFor(rule, products) {
+  const p = rule.pattern || 'C';
+  if (p === 'B') {
+    const specs = rule.blocks || [];
+    const hasDS = specs.some((s) => (typeof s === 'string' ? s === 'Discovery Set' : Array.isArray(s) ? s.includes('Discovery Set') : s.discovery || (s.types || []).includes('Discovery Set')));
+    const withLead = (s) => { const o = typeof s === 'string' ? { types: [s] } : Array.isArray(s) ? { types: s } : s; return rule.lead && !o.lead ? { ...o, lead: rule.lead } : o; };
+    return [...(hasDS ? [] : [{ discovery: true }]), ...specs.map(withLead)];
+  }
+  if (p === 'L') return [{ any: true, order: 'live', label: 'Reihenfolge wie bisher' }]; // Platzhalter, bis die Marke eine Regel hat
+  if (p === 'A') {
+    return [
+      { discovery: true, notInSeries: true, label: 'Discovery Sets der Marke' },
+      ...(rule.series || []).map((s) => ({ series: s, label: `Serie ${s}`, ...(rule.seriesBlock || {}) })),
+      { fragrance: true, label: 'Düfte ohne Serie' },
+      { any: true, label: 'Weitere Produkte' },
+    ];
+  }
+  // C: Discovery Sets → Bestseller (höchstens drei) → Düfte A–Z (Konzentrationen beisammen) → übrige Arten je Block
+  const others = [...new Set(products.filter((x) => !isFragrance(x.type) && !isDiscovery(x.type, x.title)).map((x) => x.type))]
+    .sort((a, b) => typeRank(a) - typeRank(b) || compareText(a, b));
+  return [
+    { discovery: true },
+    { fragrance: true, label: 'Düfte', lead: rule.lead },
+    ...others.map((t) => ({ types: [t], lead: rule.lead })),
+  ];
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* Hauptfunktion                                                                                */
+/* ------------------------------------------------------------------------------------------- */
+
+export function sortCollection(input, rule = {}, opts = {}) {
+  const settings = { ...SETTINGS, ...(opts.settings || {}) };
+  const today = opts.today || new Date().toISOString().slice(0, 10);
+  const kind = opts.kind || 'brand';
+  const notes = [];
+  const note = (p, kindOf, msg) => notes.push({ id: p?.id ?? null, title: p?.title ?? '', kind: kindOf, msg });
+
+  const parse = makeParser([...new Set(input.map((x) => x.type))]);
+  const products = input.map((x, idx) => {
+    const tags = new Set((x.tags || []).map((t) => String(t).toLowerCase()));
+    const parsed = parse(x.title, x.type);
+    return { ...x, idx, tags, parsed, series: x.series || [], isDS: isDiscovery(x.type, x.title), visible: x.status === 'ACTIVE' && x.published !== false };
+  });
+  for (const p of products) p.vis = visRank(p, settings);
+  const byTitle = new Map(products.map((p) => [compareKey(p.title), p]));
+  const brandSeries = new Set(rule.series || []);
+  const ctx = { brandSeries };
+
+  // 1. Refills, die hinter ihrem Mutterprodukt stehen
+  const refillMode = (p) => {
+    const r = rule.refills;
+    if (!r) return 'block';
+    if (typeof r === 'string') return r;
+    return r[p.type] || r.default || 'block';
+  };
+  const attachedTo = new Map(); // parentId → [refill]
+  const attached = new Set();
+  for (const p of products) {
+    if (!p.parsed.refill || refillMode(p) !== 'after-parent') continue;
+    const parent = byTitle.get(compareKey(p.parsed.parentTitle));
+    if (parent && parent !== p) {
+      if (!attachedTo.has(parent.id)) attachedTo.set(parent.id, []);
+      attachedTo.get(parent.id).push(p);
+      attached.add(p.id);
+    } else if (p.visible) note(p, 'refill-ohne-mutter', `Kein Mutterprodukt „${p.parsed.parentTitle}“ in der Kollektion – steht im eigenen Block`);
+  }
+
+  // Muster A: Extrait, Haarparfum, Travel Size ohne eigene Serie gehören zur Serie des gleichnamigen Dufts (BDK)
+  if (rule.pattern === 'A') {
+    const seriesByScent = new Map();
+    for (const p of products) {
+      if (!isFragrance(p.type)) continue;
+      const s = p.series.find((x) => brandSeries.has(x));
+      if (s && !seriesByScent.has(scentKey(p))) seriesByScent.set(scentKey(p), s);
+    }
+    for (const p of products) {
+      if (!isFragrance(p.type) || p.series.some((x) => brandSeries.has(x))) continue;
+      const s = seriesByScent.get(scentKey(p));
+      if (s) p.series = [...p.series, s];
+    }
+  }
+
+  // Muster C mit seriesLast: Düfte der Hauptlinie zuerst, kleine Serien danach als Block (Héritage Berbère: Oasis, Obvious: High Standards)
+  if (rule.pattern === 'C' && rule.seriesLast) {
+    const order = [...new Set(products.flatMap((p) => p.series))].sort();
+    for (const p of products) p.seriesRank = p.series.length ? 1 + order.indexOf(p.series[0]) : 0;
+  }
+
+  // 2. Blöcke zuordnen (spezifischster Treffer gewinnt, bei Gleichstand der erste)
+  const blocks = blocksFor(rule, products).map(normBlock);
+  const rest = { i: blocks.length, label: 'Ohne Regel', lead: [], typeList: [], order: 'scent', typeOrder: null, unplaced: true };
+  const members = new Map(blocks.map((b) => [b, []]));
+  members.set(rest, []);
+  for (const p of products) {
+    if (attached.has(p.id)) continue;
+    let best = null; let bestScore = -1;
+    for (const b of blocks) { const s = matches(b, p, ctx); if (s > bestScore) { best = b; bestScore = s; } }
+    if (!best) { members.get(rest).push(p); if (p.visible) note(p, 'ohne-regel', `Produktart „${p.type}“ hat in der Regel keinen Block – steht am Ende`); continue; }
+    members.get(best).push(p);
+  }
+
+  // 3. Muster C: bis zu drei Bestseller nach den Discovery Sets
+  let bestsellerBlock = null;
+  if ((rule.pattern || 'C') === 'C') {
+    bestsellerBlock = { i: 0.5, label: 'Bestseller', lead: [], typeList: [], order: 'scent', typeOrder: null };
+    const cands = [];
+    for (const b of blocks) {
+      if (b.discovery) continue;
+      const list = members.get(b).slice().sort(blockComparator(b, settings));
+      for (const p of list) if (p.bestseller && p.visible && p.available) cands.push(p);
+    }
+    const max = rule.bestsellerMax ?? settings.bestsellerMax;
+    const take = cands.slice(0, max);
+    if (cands.length > max) note(null, 'bestseller-zu-viele', `${cands.length} Bestseller, vorne stehen nur ${max}: ${take.map((p) => p.title).join(', ')}`);
+    for (const b of blocks) members.set(b, members.get(b).filter((p) => !take.includes(p)));
+    members.set(bestsellerBlock, take);
+  }
+
+  // 4. Regelordnung: Blöcke in Folge, im Block sortiert, Refills hinter ihr Mutterprodukt
+  const ordered = [...blocks, ...(bestsellerBlock ? [bestsellerBlock] : []), rest].sort((a, b) => a.i - b.i);
+  const ruleOrder = [];
+  const group = new Map();
+  for (const b of ordered) {
+    const list = members.get(b) || [];
+    if (!list.length) continue;
+    list.sort(blockComparator(b, settings));
+    for (const p of list) {
+      ruleOrder.push(p); group.set(p.id, b.label);
+      for (const r of (attachedTo.get(p.id) || []).sort((x, y) => x.vis - y.vis || compareText(x.title, y.title))) { ruleOrder.push(r); group.set(r.id, `${b.label} (Refill)`); }
+    }
+    if (b.max && list.length > b.max) note(null, 'block-voll', `${b.label}: ${list.length} statt höchstens ${b.max}`);
+  }
+
+  // 5. Allgemeine Regeln
+  for (const p of products) {
+    if (p.tags.has(settings.pinTag) && !validDate(p.pinUntil)) note(p, 'pin-ohne-datum', 'Tag „pin“ ohne Datum im Feld „Pin bis“ – wird nicht gepinnt');
+    if (p.visible && settings.imageRule && p.vis === 1) note(p, 'bild', 'Erstes Bild ist kein 6:7-Packshot – steht am Ende seines Blocks');
+  }
+  const pinned = (p) => p.visible && p.available && validDate(p.pinUntil) && p.pinUntil >= today;
+  const isNew = (p) => kind === 'brand' && p.visible && p.available && p.tags.has(settings.neuTag) && (settings.neuRefills || !p.parsed.refill);
+  const activeSeasons = Object.entries(settings.seasons || {}).filter(([, w]) => seasonActive(w, today)).map(([tag]) => tag);
+  const inSeason = (p) => kind === 'brand' && p.visible && p.available && activeSeasons.some((t) => p.tags.has(t));
+  const soldOut = (p) => p.visible && !p.available;
+
+  const front = [];
+  const used = new Set();
+  const take = (pred, label) => { for (const p of ruleOrder) if (!used.has(p.id) && !soldOut(p) && pred(p)) { front.push(p); used.add(p.id); group.set(p.id, label); } };
+  take(pinned, 'Pin');
+  take(isNew, 'Neu');
+  take(inSeason, 'Saison');
+  const middle = ruleOrder.filter((p) => !used.has(p.id) && !soldOut(p));
+  const tail = ruleOrder.filter((p) => !used.has(p.id) && soldOut(p));
+  for (const p of tail) group.set(p.id, `Ausverkauft · ${group.get(p.id)}`);
+  const final = [...front, ...middle, ...tail];
+
+  if (final.length !== products.length || new Set(final.map((p) => p.id)).size !== products.length) throw new Error('Sortierung hat Produkte verloren oder verdoppelt');
+  return {
+    order: final.map((p) => p.id),
+    groups: Object.fromEntries(final.map((p) => [p.id, group.get(p.id)])),
+    notes,
+  };
+}
+
+const scentKey = (p) => `${p.parsed.scent.toLowerCase()}|${p.parsed.line.toLowerCase()}`;
+const compareKey = (t) => String(t || '').replace(/­/g, '').replace(/[“”„"«»]/g, '"').replace(/\s+/g, ' ').trim().toLowerCase();
+const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d);
+
+/* ------------------------------------------------------------------------------------------- */
+/* Vergleich alt ↔ neu (für Bericht und Trockenlauf)                                           */
+/* ------------------------------------------------------------------------------------------- */
+
+// Sichtbare Reihenfolge vergleichen: wie viele Produkte stehen anders, welche springen am weitesten
+export function diffOrders(current, target, visibleIds) {
+  const vis = visibleIds ? (id) => visibleIds.has(id) : () => true;
+  const a = current.filter(vis), b = target.filter(vis);
+  const posA = new Map(a.map((id, i) => [id, i]));
+  const moves = b.map((id, i) => ({ id, from: posA.get(id), to: i })).filter((m) => m.from !== m.to);
+  // wie viele Produkte müssen tatsächlich umziehen (Rest bleibt in seiner Reihenfolge) = n − längste aufsteigende Teilfolge
+  const seq = b.map((id) => posA.get(id)).filter((x) => x !== undefined);
+  const tails = [];
+  for (const x of seq) { let lo = 0, hi = tails.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (tails[mid] < x) lo = mid + 1; else hi = mid; } tails[lo] = x; }
+  return { same: moves.length === 0, changedFull: current.join() !== target.join(), moved: moves.length, displaced: seq.length - tails.length, total: b.length, moves };
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* Züge für collectionReorderProducts                                                           */
+/* ------------------------------------------------------------------------------------------- */
+
+// Möglichst wenige Züge: die längste Teilfolge, die schon richtig liegt, bleibt stehen; alle anderen
+// wandern der Zielreihenfolge nach jeweils direkt hinter ihren Vorgänger. Shopify wendet die Züge
+// nacheinander an, newPosition gilt jeweils für den Stand nach den vorigen Zügen.
+export function planMoves(current, target) {
+  if (current.length !== target.length) throw new Error('planMoves: unterschiedliche Produktmengen');
+  const pos = new Map(current.map((id, i) => [id, i]));
+  const seq = target.map((id) => { const p = pos.get(id); if (p === undefined) throw new Error(`planMoves: ${id} fehlt`); return p; });
+  const tails = []; const prev = new Array(seq.length).fill(-1);
+  for (let i = 0; i < seq.length; i++) {
+    let lo = 0, hi = tails.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (seq[tails[mid]] < seq[i]) lo = mid + 1; else hi = mid; }
+    if (lo > 0) prev[i] = tails[lo - 1];
+    tails[lo] = i;
+  }
+  const kept = new Set();
+  for (let k = tails.length ? tails[tails.length - 1] : -1; k >= 0; k = prev[k]) kept.add(target[k]);
+
+  const arr = current.slice(); const moves = [];
+  for (let i = 0; i < target.length; i++) {
+    const id = target[i];
+    if (kept.has(id)) continue;
+    arr.splice(arr.indexOf(id), 1);
+    const at = i === 0 ? 0 : arr.indexOf(target[i - 1]) + 1;
+    arr.splice(at, 0, id);
+    moves.push({ id, newPosition: at });
+  }
+  if (arr.every((x, i) => x === target[i])) return moves;
+  // Sicherheitsnetz: Platz für Platz von vorne
+  const a = current.slice(); const full = [];
+  for (let i = 0; i < target.length; i++) if (a[i] !== target[i]) { a.splice(a.indexOf(target[i]), 1); a.splice(i, 0, target[i]); full.push({ id: target[i], newPosition: i }); }
+  return full;
+}
+
+// Züge lokal nachspielen (für Tests und als Gegenprobe vor dem Schreiben)
+export function simulateMoves(current, moves) {
+  const arr = current.slice();
+  for (const m of moves) { arr.splice(arr.indexOf(m.id), 1); arr.splice(Math.min(m.newPosition, arr.length), 0, m.id); }
+  return arr;
+}

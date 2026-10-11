@@ -1,0 +1,30 @@
+# DUK Sortierung – Cloudflare Worker
+# Sortiert die Markenseiten im Shopify-Shop nach der Regeldatei src/rules.js.
+
+name = "duk-sortierung"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[vars]
+# dryrun = nur rechnen und berichten · manual = Schreiben nur über /admin/run?write=1 · live = Zeitplan schreibt jeden Morgen
+MODE = "dryrun"
+# SHOPIFY_SHOP steht als Standard im Code (1rbajs-ae.myshopify.com)
+
+# KV-Speicher für Bericht, Sperre und den Fingerabdruck der zuletzt geschriebenen Reihenfolge.
+# In Cloudflare unter Storage & Databases → KV einen Namespace „duk-sortierung“ anlegen und die ID hier eintragen.
+[[kv_namespaces]]
+binding = "SORT"
+id = "KV_NAMESPACE_ID_EINTRAGEN"
+
+[triggers]
+# täglich 04:20 UTC = 06:20 Wien (Sommer) bzw. 05:20 (Winter), nach den Neu-Flows um 05:00/05:05
+crons = ["20 4 * * *"]
+
+[observability]
+enabled = true
+
+# Secrets (nicht hier eintragen, sondern in Cloudflare unter Settings → Variables and Secrets):
+#   SHOPIFY_CLIENT_ID      Client ID der App „DUK Sortierung“
+#   SHOPIFY_CLIENT_SECRET  Client secret der App
+#   ADMIN_TOKEN            frei gewählt, schützt /admin/…
