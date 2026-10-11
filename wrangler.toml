@@ -12,10 +12,10 @@ MODE = "dryrun"
 # SHOPIFY_SHOP steht als Standard im Code (1rbajs-ae.myshopify.com)
 
 # KV-Speicher für Bericht, Sperre und den Fingerabdruck der zuletzt geschriebenen Reihenfolge.
-# In Cloudflare unter Storage & Databases → KV einen Namespace „duk-sortierung“ anlegen und die ID hier eintragen.
+# Namespace „duk-sortierung“ (angelegt 11.10.2026)
 [[kv_namespaces]]
 binding = "SORT"
-id = "KV_NAMESPACE_ID_EINTRAGEN"
+id = "9a4c8b4353d549fc9f0840309950c3e6"
 
 [triggers]
 # täglich 04:20 UTC = 06:20 Wien (Sommer) bzw. 05:20 (Winter), nach den Neu-Flows um 05:00/05:05

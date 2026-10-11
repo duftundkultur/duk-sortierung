@@ -49,7 +49,7 @@ Alle Admin-Endpunkte brauchen `?token=ADMIN_TOKEN` und lassen sich im Browser au
 ## Einrichtung (einmalig)
 
 1. **Shopify Dev Dashboard:** neue App „DUK Sortierung“ mit den Scopes `read_products` und `write_products`. Die App im Shop installieren, dann Client ID und Client secret kopieren.
-2. **Cloudflare, KV:** unter Storage & Databases → KV einen Namespace `duk-sortierung` anlegen. Die ID in `wrangler.toml` bei `[[kv_namespaces]]` eintragen; Claude macht das, wenn du ihm die ID schickst.
+2. **Cloudflare, KV:** ✅ Namespace `duk-sortierung` angelegt (11.10.2026), die ID steht in `wrangler.toml`.
 3. **Cloudflare, Worker:** Workers & Pages → Create → Import a repository → `duftundkultur/duk-sortierung`. Die Build-Einstellungen bleiben, Deploy-Befehl `npx wrangler deploy`.
 4. **Secrets:** unter Settings → Variables and Secrets drei Einträge anlegen:
    - `SHOPIFY_CLIENT_ID`
