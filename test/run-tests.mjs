@@ -132,6 +132,7 @@ if (fs.existsSync(`${FIX}/brands`)) {
   const order = (h) => shop.collections.find((c) => c.handle === h).ids.slice();
 
   await test('/health ohne Token, meldet Betriebsart', async () => { const r = await call('/health'); assert.equal(r.body.configured, true); assert.equal(r.body.mode, 'dryrun'); });
+  await test('/admin/scopes zeigt die Rechte der App', async () => { const r = await call('/admin/scopes?token=geheim'); assert.equal(r.body.canWrite, true); });
   await test('/admin ohne Token verboten', async () => assert.equal((await call('/admin/dryrun')).status, 403));
   await test('Trockenlauf schreibt nichts', async () => {
     const before = order('diptyque');

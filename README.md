@@ -44,6 +44,7 @@ Alle Admin-Endpunkte brauchen `?token=ADMIN_TOKEN` und lassen sich im Browser au
 - `/admin/dryrun?only=diptyque,trudon` — dazu die volle Zielliste je Marke, mit alter Position und Gruppe
 - `/admin/run?only=trudon&write=1` — rechnen und schreiben (ab MODE `manual`)
 - `/admin/report` — Bericht des letzten Zeitplan-Laufs
+- `/admin/scopes` — welche Rechte die App im Shop hat
 - `/admin/unlock` — hängende Sperre lösen
 
 ## Einrichtung (einmalig)

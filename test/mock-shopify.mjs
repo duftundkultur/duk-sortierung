@@ -60,6 +60,8 @@ export function createMockFetch(shop) {
         const jid = `gid://shopify/Job/${shop.reorders}`; jobs.set(jid, 0);
         data = { collectionReorderProducts: { job: { id: jid, done: shop.reorders % 2 === 0 }, userErrors: [] } }; // jeder zweite Job braucht eine Abfrage
       }
+    } else if (name === 'SortScopes') {
+      data = { currentAppInstallation: { accessScopes: [{ handle: 'read_products' }, { handle: 'write_products' }] } };
     } else if (name === 'SortJob') {
       data = { job: { id: variables.id, done: true } };
     } else {

@@ -14,6 +14,7 @@
     /admin/dryrun?only=diptyque,trudon      rechnen, nichts schreiben; mit only zusätzlich die volle Zielliste
     /admin/run?only=…&write=1               rechnen und schreiben (nur bei MODE manual oder live)
     /admin/report                           letzter Bericht des Zeitplans
+    /admin/scopes                           welche Rechte hat die App im Shop (read_products, write_products)?
     /admin/unlock                           hängende Sperre lösen
   Öffentlich:
     /health                                 läuft der Worker, sind die Variablen gesetzt?
@@ -21,6 +22,7 @@
   Zeitplan: täglich 04:20 UTC (06:20 Wien im Sommer, 05:20 im Winter) – nach den Neu-Flows um 05:00/05:05.
 */
 import { runSort, viennaDate } from './run.js';
+import { admin } from './shopify.js';
 
 const DEFAULTS = { SHOPIFY_SHOP: '1rbajs-ae.myshopify.com', MODE: 'dryrun' };
 const NEEDED = ['SHOPIFY_CLIENT_ID', 'SHOPIFY_CLIENT_SECRET', 'ADMIN_TOKEN'];
@@ -68,6 +70,11 @@ export default {
           if (write && env.MODE === 'dryrun') return json({ error: 'MODE ist dryrun – Schreiben ist ausgeschaltet. In wrangler.toml MODE = "manual" setzen.' }, 409);
           const only = onlyParam(url);
           return json(await runSort(env, { write, only, detail: Boolean(only), trigger: 'manual' }));
+        }
+        if (path === '/admin/scopes') {
+          const d = await admin(env, 'query SortScopes { currentAppInstallation { accessScopes { handle } } }');
+          const scopes = d.currentAppInstallation.accessScopes.map((x) => x.handle);
+          return json({ scopes, canRead: scopes.includes('read_products') || scopes.includes('write_products'), canWrite: scopes.includes('write_products') });
         }
         if (path === '/admin/report') return json((await env.SORT.get('report:latest', 'json')) || { info: 'noch kein Bericht' });
         if (path === '/admin/unlock') { await env.SORT.delete('lock'); return json({ ok: true }); }
