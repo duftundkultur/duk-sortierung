@@ -440,7 +440,9 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     const pinned = (p) => typeof p.pinUntil === 'string' && p.pinUntil >= today;
     const isNew = (p) => p.tags && (Array.isArray(p.tags) ? p.tags : [...p.tags]).some((t) => String(t).toLowerCase() === settings.neuTag);
     const isLead = (p, b) => b.lead.length > 0 && p.parsed && leadIndex(p, b.lead) < b.lead.length;
-    const pickOf = (b) => b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => isLead(p, b) && good(p)) || b.items.find((p) => isNew(p) && good(p))
+    const isSet = (p) => isDiscovery(p.type, p.title) || /set$/i.test(p.type || '');
+    // Sets dürfen ins Schaufenster, zählen aber nicht als „neu“ (Matthias 11.10.: neues Diptyque-Set muss nicht vorne stehen)
+    const pickOf = (b) => b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => isLead(p, b) && good(p)) || b.items.find((p) => isNew(p) && !isSet(p) && good(p))
       || b.items.find((p) => p.bestseller && good(p)) || b.items.find((p) => classicIds.has(p.id) && good(p)) || b.items.find((p) => p.teamPick && good(p)) || b.items.find(good);
     const eligible = blocks.map((b) => ({ b, pick: pickOf(b) })).filter((x) => x.pick);
     const always = new Set(sc.always.map(vendorKey));
@@ -454,7 +456,7 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     for (const { b, pick } of chosen) {
       showcase.push(pick);
       b.items = b.items.filter((p) => p !== pick);
-      const why = pinned(pick) ? 'Pin' : isLead(pick, b) ? 'Zugpferd' : isNew(pick) ? 'Neu' : pick.bestseller ? 'Bestseller' : classicIds.has(pick.id) ? 'Klassiker' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
+      const why = pinned(pick) ? 'Pin' : isLead(pick, b) ? 'Zugpferd' : isNew(pick) && !isSet(pick) ? 'Neu' : pick.bestseller ? 'Bestseller' : classicIds.has(pick.id) ? 'Klassiker' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
       group.set(pick.id, `Schaufenster · ${b.vendor} · ${why}`);
     }
   }
