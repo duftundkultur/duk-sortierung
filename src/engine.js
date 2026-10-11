@@ -290,7 +290,11 @@ export function sortCollection(input, rule = {}, opts = {}) {
   const used = new Set();
   const take = (pred, label) => { for (const p of ruleOrder) if (!used.has(p.id) && !soldOut(p) && pred(p)) { front.push(p); used.add(p.id); group.set(p.id, label); } };
   take(pinned, 'Pin');
+  // Neu: jüngster Veröffentlichungstag zuerst, am selben Tag die Regelordnung (ein Launch bleibt beisammen)
+  const newStart = front.length;
   take(isNew, 'Neu');
+  const newOnes = front.splice(newStart).map((p, k) => ({ p, k })).sort((a, b) => pubDay(b.p).localeCompare(pubDay(a.p)) || a.k - b.k).map((x) => x.p);
+  front.push(...newOnes);
   take(inSeason, 'Saison');
   const middle = ruleOrder.filter((p) => !used.has(p.id) && !soldOut(p));
   const tail = ruleOrder.filter((p) => !used.has(p.id) && soldOut(p));
@@ -309,6 +313,8 @@ export function sortCollection(input, rule = {}, opts = {}) {
 const scentKey = (p) => `${p.parsed.scent.toLowerCase()}|${p.parsed.line.toLowerCase()}`;
 const compareKey = (t) => String(t || '').replace(/­/g, '').replace(/[“”„"«»]/g, '"').replace(/\s+/g, ' ').trim().toLowerCase();
 const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d);
+// Veröffentlichungstag in Wien (für die Reihenfolge der Neuheiten); ohne Datum ganz hinten
+const pubDay = (p) => (p.publishedAt ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vienna', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(p.publishedAt)) : '');
 
 /* ------------------------------------------------------------------------------------------- */
 /* Vergleich alt ↔ neu (für Bericht und Trockenlauf)                                           */
@@ -398,6 +404,26 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     hidden.forEach((p) => group.set(p.id, 'Nicht sichtbar'));
     const order = [...keep, ...so, ...hidden];
     return { order: order.map((p) => p.id), groups: Object.fromEntries(group), notes };
+  }
+
+  // Neuheiten-Seiten: jüngster Veröffentlichungstag zuerst, am selben Tag Markenblöcke wie sonst; Ausverkauft und Unsichtbares ans Ende
+  if (catRule.mode === 'new') {
+    const live = items.filter((p) => p.visible && p.available);
+    const days = [...new Set(live.map(pubDay))].sort().reverse();
+    const order = [];
+    for (const day of days) {
+      const subset = input.filter((x) => live.some((p) => p.id === x.id && pubDay(p) === day));
+      const res = sortCategory(subset, { mode: 'blocks', brandOrder: catRule.brandOrder, showcase: false }, opts);
+      for (const id of res.order) { order.push(id); group.set(id, `Neu ${day || 'ohne Datum'} · ${res.groups[id] || ''}`); }
+      notes.push(...res.notes);
+    }
+    const so = items.filter(soldOut).sort((a, b) => pubDay(b).localeCompare(pubDay(a)) || a.idx - b.idx);
+    const hidden = items.filter((p) => !p.visible);
+    so.forEach((p) => group.set(p.id, 'Ausverkauft'));
+    hidden.forEach((p) => group.set(p.id, 'Nicht sichtbar'));
+    const all = [...order, ...so.map((p) => p.id), ...hidden.map((p) => p.id)];
+    if (all.length !== items.length || new Set(all).size !== items.length) throw new Error('Neuheiten-Sortierung hat Produkte verloren oder verdoppelt');
+    return { order: all, groups: Object.fromEntries(group), notes, showcase: 0 };
   }
 
   // Markenfolge: Liste aus der Regel, unbekannte Marken dahinter A–Z (mit Hinweis)

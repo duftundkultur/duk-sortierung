@@ -50,7 +50,7 @@ export async function runSort(env, { write = {}, scope = 'all', only = null, det
           const rule = categoryRuleFor(c.handle, products);
           if (rule.mode === 'skip' || !products.length) { results.push({ ...r, skipped: true, products: products.length }); continue; }
           res = sortCategory(products, rule, { today, brandRuleFor, classicsFor });
-          ruleInfo = { pattern: rule.mode === 'curated' ? 'kuratiert' : rule.orderName, showcase: res.showcase || 0 };
+          ruleInfo = { pattern: rule.mode === 'curated' ? 'kuratiert' : rule.mode === 'new' ? `neueste zuerst (${rule.orderName})` : rule.orderName, showcase: res.showcase || 0 };
         }
         const current = products.map((p) => p.id);
         const visible = new Set(products.filter((p) => p.status === 'ACTIVE' && p.published).map((p) => p.id));

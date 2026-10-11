@@ -17,7 +17,8 @@ Er sortiert jede Kollektion mit `custom.collection_type = vendor`, also jede Mar
    - **L — wie bisher:** Platzhalter, die Live-Reihenfolge bleibt. Derzeit nur Au Maison.
 2. **Allgemeine Regeln darüber** (entschieden am 11.10.2026)
    - **Pin:** Feld `custom.pin_bis` mit einem Datum ab heute → ganz vorne. Am Datum fällt das Produkt von selbst zurück.
-   - **Neu:** Tag `neu` → vorne auf der Markenseite. Den Tag setzt und entfernt Shopify Flow nach 42 Tagen. Refills bleiben bei ihrem Mutterprodukt.
+   - **Neu:** Tag `neu` → vorne auf der Markenseite, jüngster Veröffentlichungstag zuerst, am selben Tag nach der Regel. Den Tag setzt und entfernt Shopify Flow nach 42 Tagen. Refills bleiben bei ihrem Mutterprodukt.
+   - **Klassiker:** Tag `klassiker` am Leitprodukt → alle Produkte dieses Dufts stehen nach dem Zugpferd vorne in ihrem Block.
    - **Saison:** Tag `saison-weihnachten` (1.11.–24.12.) oder `saison-sommer` → vorne, solange das Fenster offen ist.
    - **Ohne 6:7-Packshot** als erstes Bild → ans Ende des eigenen Blocks.
    - **Komplett ausverkauft** → ans Ende der Seite. Das gilt auch für Neu und Pin. Kommt Ware nach, springt das Produkt zurück an seinen Platz.
@@ -30,11 +31,12 @@ Geschrieben wird nur, wenn sich etwas geändert hat. Der Motor schickt dabei mö
 Alle Kollektionen mit dem Titel „Kategorie: …“, also Produktarten, Duftfamilien, Primäre Noten, Geschenke und Neuheiten.
 
 - **Markenblöcke:** Die Marken stehen als Blöcke in der Markenfolge der Kategorie (`BRAND_ORDERS` in `src/rules.js`). Im Block gilt die Regel der Marke. Neu, Saison und Pin stehen vorne im eigenen Block.
-- **Schaufenster:** Ab 40 sichtbaren Produkten stehen vorne zwei Reihen, also 8 Plätze, mit je einem Produkt pro Marke in der Markenfolge. Diptyque bekommt immer einen Platz (`showcaseAlways`). Gewählt wird der Pin, sonst das Zugpferd der Marke (`lead` in der Markenregel, z. B. Forêts, Bois Impérial), sonst ein neues Produkt (Tag `neu`), sonst ein Bestseller, sonst ein Team Pick, sonst das erste Produkt mit 6:7-Packshot.
+- **Schaufenster:** Ab 40 sichtbaren Produkten stehen vorne zwei Reihen, also 8 Plätze, mit je einem Produkt pro Marke in der Markenfolge. Diptyque bekommt immer einen Platz (`showcaseAlways`). Gewählt wird der Pin, sonst das Zugpferd der Marke (`lead` in der Markenregel, z. B. Forêts, Bois Impérial), sonst ein neues Produkt (Tag `neu`, Sets zählen hier nicht), sonst ein Bestseller, sonst ein Klassiker, sonst ein Team Pick, sonst das erste Produkt mit 6:7-Packshot.
 - **Ausverkauft** steht am Ende der Seite, in Markenfolge. Dahinter folgt, was nicht sichtbar ist.
 - **Welche Markenfolge gilt:** Für Parfums, Raumdüfte, Duftkerzen, Diffusoren, Räucherstäbchen, Pflege und Home ist sie fest hinterlegt. Alle anderen Kategorien, auch Duftfamilien und Noten, nehmen die Folge der Welt, aus der die meisten ihrer Produkte stammen.
 - **Handauswahl:** Bei den Geschenken, Damen- und Herrendüften und Weihnachten bleibt die Reihenfolge, nur Ausverkauftes rückt ans Ende.
-- **Nicht angefasst:** Die Neuheiten sortiert Shopify selbst, neueste zuerst. Die Gutscheine bleiben ebenfalls, wie sie sind.
+- **Neuheiten** (`neuheiten`, `nischenduft-neuheiten`): nach Veröffentlichungstag, neueste zuerst; am selben Tag Markenblöcke; Ausverkauft ans Ende. Shopify selbst kann nur nach Anlagedatum.
+- **Nicht angefasst:** Gutscheine.
 
 Kategorieseiten haben eine eigene Betriebsart, `CATEGORY_MODE`. Jedi sortiert dort noch: erst in Jedi auf *Inactive* stellen, dann umschalten.
 

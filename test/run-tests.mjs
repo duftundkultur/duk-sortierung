@@ -174,6 +174,17 @@ await test('Schaufenster: neues Set zählt nicht als Neu, Bestseller kommt vor',
   const res = sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B', 'C'] }, { today: '2026-10-11' });
   assert.equal(titles(res, list)[0], 'Eau de Parfum A06');
 });
+await test('Neu: jüngster Veröffentlichungstag zuerst, am selben Tag Regelordnung', () => {
+  const list = [P('Eau de Parfum Alt', 'Eau de Parfum', { tags: ['neu'], publishedAt: '2026-09-02T08:00:00Z' }), P('Eau de Parfum Zeta', 'Eau de Parfum', { tags: ['neu'], publishedAt: '2026-10-10T08:00:00Z' }),
+    P('Eau de Parfum Beta', 'Eau de Parfum', { tags: ['neu'], publishedAt: '2026-10-10T09:00:00Z' }), P('Eau de Parfum Rest', 'Eau de Parfum')];
+  assert.deepEqual(titles(sortCollection(list, { pattern: 'C' }, { today: '2026-10-11' }), list), ['Eau de Parfum Beta', 'Eau de Parfum Zeta', 'Eau de Parfum Alt', 'Eau de Parfum Rest']);
+});
+await test('Neuheiten-Seite: nach Veröffentlichungstag, nicht Anlagedatum; Ausverkauft ans Ende', () => {
+  const list = [V('A', 'Eau de Parfum A1', 'Eau de Parfum', { tags: ['neu'], publishedAt: '2026-09-20T08:00:00Z' }), V('B', 'Duftkerze B1', 'Duftkerze', { tags: ['neu'], publishedAt: '2026-10-20T08:00:00Z' }),
+    V('A', 'Eau de Parfum A2', 'Eau de Parfum', { tags: ['neu'], publishedAt: '2026-10-20T07:00:00Z' }), V('C', 'Eau de Parfum C1', 'Eau de Parfum', { tags: ['neu'], publishedAt: '2026-10-21T07:00:00Z', available: false })];
+  const res = sortCategory(list, { mode: 'new', brandOrder: ['B', 'A'] }, { today: '2026-10-21' });
+  assert.deepEqual(titles(res, list), ['Duftkerze B1', 'Eau de Parfum A2', 'Eau de Parfum A1', 'Eau de Parfum C1']);
+});
 await test('Neu steht vorne im eigenen Markenblock, nicht ganz oben', () => {
   const list = [V('A', 'Eau de Parfum A1', 'Eau de Parfum'), V('B', 'Eau de Parfum B1', 'Eau de Parfum'), V('B', 'Eau de Parfum B2', 'Eau de Parfum', { tags: ['neu'] })];
   assert.deepEqual(titles(sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B'] }, { today: '2026-10-11' }), list), ['Eau de Parfum A1', 'Eau de Parfum B2', 'Eau de Parfum B1']);

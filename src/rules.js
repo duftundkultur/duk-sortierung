@@ -231,8 +231,10 @@ export const CATEGORY_RULES = {
   // Handauswahl: Reihenfolge bleibt, nur Ausverkauftes ans Ende
   curated: ['kategorie-geschenke-bis-10', 'kategorie-geschenke-bis-25', 'kategorie-geschenke-bis-50', 'kategorie-geschenke-bis-100', 'kategorie-geschenke-bis-200',
     'kategorie-geschenke-fur-sie', 'kategorie-geschenke-fur-ihn', 'kategorie-geschenke-fur-alle', 'damenduefte', 'herrenduefte', 'weihnachten'],
-  // nicht anfassen: Shopify sortiert selbst (neueste zuerst) bzw. nichts zu sortieren
-  skip: ['neuheiten', 'nischenduft-neuheiten', 'gutscheine'],
+  // Neuheiten: nach Veröffentlichungstag, neueste zuerst (Shopify kann nur nach Anlagedatum; Matthias 11.10.)
+  newest: ['neuheiten', 'nischenduft-neuheiten'],
+  // nicht anfassen
+  skip: ['gutscheine'],
   // Kategorie → Markenfolge (sonst nach der Mehrheit der Produktarten)
   order: { parfums: 'parfum', raumduefte: 'raumduft', duftkerzen: 'duftkerzen', diffusoren: 'diffusoren', raeucherstaebchen: 'raeucherstaebchen', pflege: 'pflege', home: 'home' },
 };
@@ -241,6 +243,7 @@ export const CATEGORY_RULES = {
 export function categoryRuleFor(handle, products = []) {
   if (CATEGORY_RULES.skip.includes(handle)) return { mode: 'skip' };
   if (CATEGORY_RULES.curated.includes(handle)) return { mode: 'curated' };
+  const mode = CATEGORY_RULES.newest.includes(handle) ? 'new' : 'blocks';
   let orderName = CATEGORY_RULES.order[handle];
   if (!orderName) {
     const count = (pred) => products.filter(pred).length;
@@ -254,5 +257,5 @@ export function categoryRuleFor(handle, products = []) {
       orderName = Object.entries(tally).sort((a, b) => b[1] - a[1])[0]?.[0] || 'parfum';
     }
   }
-  return { mode: 'blocks', orderName, brandOrder: BRAND_ORDERS[orderName] };
+  return { mode, orderName, brandOrder: BRAND_ORDERS[orderName] };
 }
