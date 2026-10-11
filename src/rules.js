@@ -33,6 +33,7 @@ export const SETTINGS = {
   showcaseMin: 40, // Kategorieseiten ab so vielen sichtbaren, verfügbaren Produkten bekommen ein Schaufenster
   showcaseSize: 8, // zwei Reihen
   showcaseAlways: ['Diptyque'], // bekommt im Schaufenster immer einen Platz (Matthias 11.10.)
+  classicTag: 'klassiker', // unsichtbares Tag am Leitprodukt eines Klassikers; alle Produkte dieses Dufts stehen vorne im Block (Matthias 11.10.)
 };
 
 // Grundfolge der Produktarten (Muster C und für Arten ohne Block)

@@ -66,6 +66,9 @@ export function createMockFetch(shop) {
         const jid = `gid://shopify/Job/${shop.reorders}`; jobs.set(jid, 0);
         data = { collectionReorderProducts: { job: { id: jid, done: shop.reorders % 2 === 0 }, userErrors: [] } }; // jeder zweite Job braucht eine Abfrage
       }
+    } else if (name === 'SortClassics') {
+      const list = [...shop.products.values()].filter((p) => (p.tags || []).map((t) => String(t).toLowerCase()).includes('klassiker')).map((p) => ({ title: p.title, productType: p.productType, vendor: p.vendor }));
+      data = { products: page(list, variables.after, 250) };
     } else if (name === 'SortScopes') {
       data = { currentAppInstallation: { accessScopes: [{ handle: 'read_products' }, { handle: 'write_products' }] } };
     } else if (name === 'SortJob') {

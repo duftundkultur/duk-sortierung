@@ -1,7 +1,7 @@
 // Ein Durchlauf: Marken- und Kategorieseiten lesen, Zielreihenfolge rechnen, vergleichen, bei Freigabe schreiben, Bericht in KV.
 import { sortCollection, sortCategory, diffOrders, planMoves, simulateMoves, vendorKey } from './engine.js';
 import { ruleFor, BRANDS, categoryRuleFor } from './rules.js';
-import { fetchCollections, fetchSeriesMembership, fetchCollectionProducts, setManual, applyMoves } from './shopify.js';
+import { fetchCollections, fetchSeriesMembership, fetchCollectionProducts, fetchClassics, setManual, applyMoves } from './shopify.js';
 
 export const viennaDate = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vienna', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 
@@ -30,6 +30,8 @@ export async function runSort(env, { write = {}, scope = 'all', only = null, det
     const brands = scope === 'categories' ? [] : all.filter((c) => c.type === 'vendor' && want(c));
     const categories = scope === 'brands' ? [] : all.filter((c) => isCategory(c) && want(c));
     const series = await fetchSeriesMembership(env);
+    const classics = await fetchClassics(env);
+    const classicsFor = (v) => classics.get(vendorKey(v)) || [];
     const lastWritten = (await env.SORT.get('written', 'json')) || {};
     const state = {};
     const results = [];
@@ -42,12 +44,12 @@ export async function runSort(env, { write = {}, scope = 'all', only = null, det
         let res; let ruleInfo;
         if (kind === 'brand') {
           const rule = ruleFor(c.handle);
-          res = sortCollection(products, rule, { today, kind: 'brand' });
+          res = sortCollection(products, rule, { today, kind: 'brand', classics: classicsFor(c.vendor || c.title.replace(/^Brand:\s*/, '')) });
           ruleInfo = { pattern: rule.pattern, unknownRule: Boolean(rule.unknown) };
         } else {
           const rule = categoryRuleFor(c.handle, products);
           if (rule.mode === 'skip' || !products.length) { results.push({ ...r, skipped: true, products: products.length }); continue; }
-          res = sortCategory(products, rule, { today, brandRuleFor });
+          res = sortCategory(products, rule, { today, brandRuleFor, classicsFor });
           ruleInfo = { pattern: rule.mode === 'curated' ? 'kuratiert' : rule.orderName, showcase: res.showcase || 0 };
         }
         const current = products.map((p) => p.id);

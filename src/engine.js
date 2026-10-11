@@ -94,6 +94,17 @@ function leadIndex(p, lead) {
   return i < 0 ? lead.length : i;
 }
 
+// Klassiker: Duftnamen der Produkte mit Tag „klassiker“ (aus der Kollektion selbst und aus opts.classics, damit z. B.
+// das Raumspray Baies auch dann zählt, wenn nur die Kerze Baies das Tag trägt). „Aramara“ passt zu „Aramara Stile“.
+function classicKeys(list, parse) {
+  return [...new Set(list.map((x) => clean(parse(x.title, x.type).scent).toLowerCase()).filter((k) => k.length >= 3))];
+}
+function isClassic(p, keys) {
+  const s = clean(p.parsed.scent).toLowerCase();
+  if (s.length < 3) return false;
+  return keys.some((k) => s === k || s.startsWith(`${k} `) || k.startsWith(`${s} `));
+}
+
 function blockComparator(b, settings) {
   const lead = b.lead.map((s) => clean(s).toLowerCase());
   const leadRank = (p) => leadIndex(p, lead);
@@ -106,6 +117,7 @@ function blockComparator(b, settings) {
       [x.isDS ? 0 : 1, y.isDS ? 0 : 1],
       [typeOrderRank(x.type), typeOrderRank(y.type)],
       [leadRank(x), leadRank(y)],
+      [x.classic ? 0 : 1, y.classic ? 0 : 1], // Klassiker nach dem Zugpferd vorne im Block
       [x.seriesRank || 0, y.seriesRank || 0],
     ];
     if (b.order === 'live') keys.push([x.idx, y.idx]);
@@ -164,12 +176,15 @@ export function sortCollection(input, rule = {}, opts = {}) {
   const notes = [];
   const note = (p, kindOf, msg) => notes.push({ id: p?.id ?? null, title: p?.title ?? '', kind: kindOf, msg });
 
-  const parse = makeParser([...new Set(input.map((x) => x.type))]);
+  const extra = opts.classics || [];
+  const parse = makeParser([...new Set([...input, ...extra].map((x) => x.type))]);
   const products = input.map((x, idx) => {
     const tags = new Set((x.tags || []).map((t) => String(t).toLowerCase()));
     const parsed = parse(x.title, x.type);
     return { ...x, idx, tags, parsed, series: x.series || [], isDS: isDiscovery(x.type, x.title), visible: x.status === 'ACTIVE' && x.published !== false };
   });
+  const keys = classicKeys([...products.filter((p) => p.tags.has(settings.classicTag)), ...extra], parse);
+  for (const p of products) p.classic = !p.isDS && isClassic(p, keys);
   for (const p of products) p.vis = visRank(p, settings);
   const byTitle = new Map(products.map((p) => [compareKey(p.title), p]));
   const brandSeries = new Set(rule.series || []);
@@ -287,6 +302,7 @@ export function sortCollection(input, rule = {}, opts = {}) {
     order: final.map((p) => p.id),
     groups: Object.fromEntries(final.map((p) => [p.id, group.get(p.id)])),
     notes,
+    classic: products.filter((p) => p.classic).map((p) => p.id),
   };
 }
 
@@ -393,13 +409,15 @@ export function sortCategory(input, catRule = {}, opts = {}) {
   if (unknown.length && items.some((p) => p.visible && unknown.includes(p.vendor))) notes.push({ id: null, title: '', kind: 'marke-ohne-platz', msg: `Nicht in der Markenfolge, steht hinten: ${unknown.join(', ')}` });
 
   // je Marke die Markenregel auf ihre Produkte dieser Kategorie
+  const classicIds = new Set();
   const blocks = [];
   const soTail = [];
   const hiddenTail = [];
   for (const v of vendors) {
     const subset = items.filter((p) => p.vendor === v);
     const rule = (opts.brandRuleFor && opts.brandRuleFor(v)) || { pattern: 'C' };
-    const res = sortCollection(subset, rule, { today, kind: 'brand', settings });
+    const res = sortCollection(subset, rule, { today, kind: 'brand', settings, classics: opts.classicsFor ? opts.classicsFor(v) : [] });
+    for (const id of res.classic) classicIds.add(id);
     const byId = new Map(subset.map((p) => [p.id, p]));
     const block = [];
     for (const id of res.order) {
@@ -412,7 +430,7 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     blocks.push({ vendor: v, items: block, lead: (rule.lead || []).map((x) => clean(x).toLowerCase()) });
   }
 
-  // Schaufenster: je Marke ein Produkt – Pin vor Zugpferd vor Neu vor Bestseller vor Team Pick vor dem ersten Produkt; nur mit 6:7-Packshot.
+  // Schaufenster: je Marke ein Produkt – Pin vor Zugpferd vor Neu vor Bestseller vor Klassiker vor Team Pick vor dem ersten Produkt; nur mit 6:7-Packshot.
   // Marken aus showcaseAlways (Diptyque) bekommen immer einen Platz; alle in der Markenfolge.
   const showcase = [];
   const visibleCount = items.filter((p) => p.visible && p.available).length;
@@ -423,7 +441,7 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     const isNew = (p) => p.tags && (Array.isArray(p.tags) ? p.tags : [...p.tags]).some((t) => String(t).toLowerCase() === settings.neuTag);
     const isLead = (p, b) => b.lead.length > 0 && p.parsed && leadIndex(p, b.lead) < b.lead.length;
     const pickOf = (b) => b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => isLead(p, b) && good(p)) || b.items.find((p) => isNew(p) && good(p))
-      || b.items.find((p) => p.bestseller && good(p)) || b.items.find((p) => p.teamPick && good(p)) || b.items.find(good);
+      || b.items.find((p) => p.bestseller && good(p)) || b.items.find((p) => classicIds.has(p.id) && good(p)) || b.items.find((p) => p.teamPick && good(p)) || b.items.find(good);
     const eligible = blocks.map((b) => ({ b, pick: pickOf(b) })).filter((x) => x.pick);
     const always = new Set(sc.always.map(vendorKey));
     let chosen = eligible.slice(0, sc.size);
@@ -436,7 +454,7 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     for (const { b, pick } of chosen) {
       showcase.push(pick);
       b.items = b.items.filter((p) => p !== pick);
-      const why = pinned(pick) ? 'Pin' : isLead(pick, b) ? 'Zugpferd' : isNew(pick) ? 'Neu' : pick.bestseller ? 'Bestseller' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
+      const why = pinned(pick) ? 'Pin' : isLead(pick, b) ? 'Zugpferd' : isNew(pick) ? 'Neu' : pick.bestseller ? 'Bestseller' : classicIds.has(pick.id) ? 'Klassiker' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
       group.set(pick.id, `Schaufenster · ${b.vendor} · ${why}`);
     }
   }

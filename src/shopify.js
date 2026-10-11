@@ -96,6 +96,24 @@ export async function fetchSeriesMembership(env) {
   return map;
 }
 
+const Q_CLASSICS = `query SortClassics($after: String) {
+  products(first: 250, after: $after, query: "tag:klassiker") {
+    pageInfo { hasNextPage endCursor }
+    nodes { title productType vendor }
+  }
+}`;
+
+// Leitprodukte der Klassiker (Tag „klassiker“): Marke → [{ title, type }]
+export async function fetchClassics(env) {
+  const map = new Map();
+  for (const p of await adminAll(env, Q_CLASSICS, 'products')) {
+    const k = String(p.vendor || '').replace(/[’‘`´]/g, "'").toLowerCase().trim();
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push({ title: p.title, type: p.productType || '' });
+  }
+  return map;
+}
+
 const productFields = (withImage) => `
         id legacyResourceId title productType vendor tags status onlineStoreUrl publishedAt
         variants(first: 20) { nodes { availableForSale } }

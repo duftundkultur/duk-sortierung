@@ -143,6 +143,30 @@ await test('Zugpferd mit Apostroph und Gedankenstrich (Goutal Noël)', () => {
   const brand = [P('Duftkerze Ambre', 'Duftkerze'), P('Duftkerze Noël — Une Forêt d’Or', 'Duftkerze'), P('Duftkerze Noël — Une Forêt d’Or 300g', 'Duftkerze')];
   assert.deepEqual(titles(sortCollection(brand, { pattern: 'C', lead: ['Noël — Une Forêt d’Or'] }, { today: '2026-10-11' }), brand), ['Duftkerze Noël — Une Forêt d’Or', 'Duftkerze Noël — Une Forêt d’Or 300g', 'Duftkerze Ambre']);
 });
+await test('Klassiker: vorne im Block nach dem Zugpferd, auch in anderen Produktarten desselben Dufts', () => {
+  const brand = [P('Duftkerze Ambre', 'Duftkerze'), P('Duftkerze Baies 300g', 'Duftkerze'), P('Duftkerze Zeder', 'Duftkerze'), P('Duftkerze Baies', 'Duftkerze', { tags: ['klassiker'] }), P('Duftkerze Forêts', 'Duftkerze'),
+    P('Raumspray Ambre', 'Raumspray'), P('Raumspray Baies', 'Raumspray')];
+  const rule = { pattern: 'B', lead: ['Forêts'], blocks: ['Duftkerze', 'Raumspray'] };
+  const res = sortCollection(brand, rule, { today: '2026-10-11' });
+  assert.deepEqual(titles(res, brand), ['Duftkerze Forêts', 'Duftkerze Baies', 'Duftkerze Baies 300g', 'Duftkerze Ambre', 'Duftkerze Zeder', 'Raumspray Baies', 'Raumspray Ambre']);
+  assert.equal(res.classic.length, 3);
+  // Kategorie ohne das Leitprodukt: das Tag kommt über classicsFor
+  const sprays = [V('D', 'Raumspray Ambre', 'Raumspray'), V('D', 'Raumspray Baies', 'Raumspray')];
+  const cat = sortCategory(sprays, { mode: 'blocks', brandOrder: ['D'] }, { today: '2026-10-11', classicsFor: (v) => (v === 'D' ? [{ title: 'Duftkerze Baies', type: 'Duftkerze' }] : []) });
+  assert.deepEqual(titles(cat, sprays), ['Raumspray Baies', 'Raumspray Ambre']);
+});
+await test('Klassiker: Kurzname passt zur Linie (Aramara ↔ Aramara Stile), Discovery Set zählt nicht', () => {
+  const brand = [P('Raumspray Mediterranea', 'Raumspray'), P('Raumspray Aramara', 'Raumspray'), P('Diffusor Aramara Stile', 'Diffusor', { tags: ['klassiker'] })];
+  assert.deepEqual(titles(sortCollection(brand, { pattern: 'B', blocks: ['Diffusor', 'Raumspray'] }, { today: '2026-10-11' }), brand), ['Diffusor Aramara Stile', 'Raumspray Aramara', 'Raumspray Mediterranea']);
+});
+await test('Schaufenster: Bestseller vor Klassiker vor Team Pick', () => {
+  const list = [];
+  for (const b of ['A', 'B', 'C']) for (let i = 0; i < 15; i++) list.push(V(b, `Eau de Parfum ${b}${String(i).padStart(2, '0')}`, 'Eau de Parfum', {
+    bestseller: b === 'A' && i === 4, teamPick: i === 2, tags: i === 7 ? ['klassiker'] : [] }));
+  const res = sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B', 'C'] }, { today: '2026-10-11' });
+  assert.deepEqual(titles(res, list).slice(0, 3), ['Eau de Parfum A04', 'Eau de Parfum B07', 'Eau de Parfum C07']);
+  assert.match(res.groups[list[22].id], /Klassiker/);
+});
 await test('Neu steht vorne im eigenen Markenblock, nicht ganz oben', () => {
   const list = [V('A', 'Eau de Parfum A1', 'Eau de Parfum'), V('B', 'Eau de Parfum B1', 'Eau de Parfum'), V('B', 'Eau de Parfum B2', 'Eau de Parfum', { tags: ['neu'] })];
   assert.deepEqual(titles(sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B'] }, { today: '2026-10-11' }), list), ['Eau de Parfum A1', 'Eau de Parfum B2', 'Eau de Parfum B1']);
