@@ -8,9 +8,9 @@ workers_dev = true
 
 [vars]
 # dryrun = nur rechnen und berichten · manual = Schreiben nur über /admin/run?write=1 · live = Zeitplan schreibt jeden Morgen
-MODE = "manual"
+MODE = "live"
 # Kategorieseiten getrennt schalten (Jedi sortiert dort noch – erst in Jedi deaktivieren, dann hier umstellen)
-CATEGORY_MODE = "manual"
+CATEGORY_MODE = "live"
 # SHOPIFY_SHOP steht als Standard im Code (1rbajs-ae.myshopify.com)
 
 # KV-Speicher für Bericht, Sperre und den Fingerabdruck der zuletzt geschriebenen Reihenfolge.
