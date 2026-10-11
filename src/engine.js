@@ -404,7 +404,7 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     blocks.push({ vendor: v, items: block });
   }
 
-  // Schaufenster: je Marke ein Produkt – Pin vor Bestseller vor Team Pick vor dem ersten Produkt des Blocks; nur mit 6:7-Packshot.
+  // Schaufenster: je Marke ein Produkt – Pin vor Neu vor Bestseller vor Team Pick vor dem ersten Produkt des Blocks; nur mit 6:7-Packshot.
   // Marken aus showcaseAlways (Diptyque) bekommen immer einen Platz; alle in der Markenfolge.
   const showcase = [];
   const visibleCount = items.filter((p) => p.visible && p.available).length;
@@ -412,7 +412,8 @@ export function sortCategory(input, catRule = {}, opts = {}) {
   if (sc && visibleCount >= sc.min) {
     const good = (p) => !settings.imageRule || (p.image && goodImage(p.image, settings));
     const pinned = (p) => typeof p.pinUntil === 'string' && p.pinUntil >= today;
-    const pickOf = (b) => b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => p.bestseller && good(p)) || b.items.find((p) => p.teamPick && good(p)) || b.items.find(good);
+    const isNew = (p) => p.tags && (Array.isArray(p.tags) ? p.tags : [...p.tags]).some((t) => String(t).toLowerCase() === settings.neuTag);
+    const pickOf = (b) => b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => isNew(p) && good(p)) || b.items.find((p) => p.bestseller && good(p)) || b.items.find((p) => p.teamPick && good(p)) || b.items.find(good);
     const eligible = blocks.map((b) => ({ b, pick: pickOf(b) })).filter((x) => x.pick);
     const always = new Set(sc.always.map(vendorKey));
     let chosen = eligible.slice(0, sc.size);
@@ -425,7 +426,7 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     for (const { b, pick } of chosen) {
       showcase.push(pick);
       b.items = b.items.filter((p) => p !== pick);
-      const why = pinned(pick) ? 'Pin' : pick.bestseller ? 'Bestseller' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
+      const why = pinned(pick) ? 'Pin' : isNew(pick) ? 'Neu' : pick.bestseller ? 'Bestseller' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
       group.set(pick.id, `Schaufenster · ${b.vendor} · ${why}`);
     }
   }

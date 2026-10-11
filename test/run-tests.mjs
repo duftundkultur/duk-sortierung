@@ -123,6 +123,12 @@ await test('Schaufenster: Diptyque bekommt immer einen Platz, Team Pick vor dem 
   assert.deepEqual(t, ['Eau de Parfum A3', 'Eau de Parfum B0', 'Eau de Parfum C0', 'Eau de Parfum D0', 'Eau de Parfum E0', 'Eau de Parfum F0', 'Eau de Parfum G0', 'Eau de Parfum Diptyque0']);
   assert.match(res.groups[list[3].id], /Team Pick/);
 });
+await test('Schaufenster: Neu vor Bestseller', () => {
+  const list = [];
+  for (const b of ['A', 'B', 'C']) for (let i = 0; i < 15; i++) list.push(V(b, `Eau de Parfum ${b}${String(i).padStart(2, '0')}`, 'Eau de Parfum', { bestseller: i === 3, tags: b === 'A' && i === 9 ? ['neu'] : [] }));
+  const res = sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B', 'C'] }, { today: '2026-10-11' });
+  assert.deepEqual(titles(res, list).slice(0, 3), ['Eau de Parfum A09', 'Eau de Parfum B03', 'Eau de Parfum C03']);
+});
 await test('Neu steht vorne im eigenen Markenblock, nicht ganz oben', () => {
   const list = [V('A', 'Eau de Parfum A1', 'Eau de Parfum'), V('B', 'Eau de Parfum B1', 'Eau de Parfum'), V('B', 'Eau de Parfum B2', 'Eau de Parfum', { tags: ['neu'] })];
   assert.deepEqual(titles(sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B'] }, { today: '2026-10-11' }), list), ['Eau de Parfum A1', 'Eau de Parfum B2', 'Eau de Parfum B1']);
