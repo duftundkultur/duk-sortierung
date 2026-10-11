@@ -8,7 +8,7 @@
 //      Pin mit Ablaufdatum → Neu (Tag „neu“) → Saison → Regelplatz → … → Ausverkauft ans Ende
 //      Ausverkauft schlägt Neu und Pin. Nicht sichtbare Produkte bleiben am Ende ihres Blocks.
 
-import { makeParser, compareText, isFragrance, isDiscovery, FRAGRANCE_TYPES } from './titles.js';
+import { makeParser, compareText, clean, isFragrance, isDiscovery, FRAGRANCE_TYPES } from './titles.js';
 import { SETTINGS, TYPE_ORDER } from './rules.js';
 
 const STATUS_RANK = { ACTIVE: 0, UNLISTED: 2, DRAFT: 4, ARCHIVED: 5 };
@@ -87,9 +87,16 @@ function matches(b, p, ctx) {
   return score;
 }
 
+// Zugpferd (lead): Duftname gleich oder beginnt mit dem Namen aus der Regel („Forêts“, „Bois Impérial“)
+function leadIndex(p, lead) {
+  const s = clean(p.parsed.scent).toLowerCase();
+  const i = lead.findIndex((l) => s === l || s.startsWith(`${l} `));
+  return i < 0 ? lead.length : i;
+}
+
 function blockComparator(b, settings) {
-  const lead = b.lead.map((s) => s.toLowerCase());
-  const leadRank = (p) => { const s = p.parsed.scent.toLowerCase(); const i = lead.findIndex((l) => s === l || s.startsWith(`${l} `)); return i < 0 ? lead.length : i; };
+  const lead = b.lead.map((s) => clean(s).toLowerCase());
+  const leadRank = (p) => leadIndex(p, lead);
   const inTypes = (t) => { const i = b.typeList.indexOf(t); return i < 0 ? b.typeList.length : i; };
   const typeOrderRank = (t) => { if (!b.typeOrder) return 0; const i = b.typeOrder.indexOf(t); return i < 0 ? b.typeOrder.length : i; };
   const conc = (t) => { if (b.typeList.length > 1) return inTypes(t); const i = FRAGRANCE_TYPES.indexOf(t); return i < 0 ? FRAGRANCE_TYPES.length + typeRank(t) : i; };
@@ -131,7 +138,7 @@ function blocksFor(rule, products) {
   if (p === 'A') {
     return [
       { discovery: true, notInSeries: true, label: 'Discovery Sets der Marke' },
-      ...(rule.series || []).map((s) => ({ series: s, label: `Serie ${s}`, ...(rule.seriesBlock || {}) })),
+      ...(rule.series || []).map((s) => ({ series: s, label: `Serie ${s}`, lead: rule.lead, ...(rule.seriesBlock || {}) })),
       { fragrance: true, label: 'Düfte ohne Serie' },
       { any: true, label: 'Weitere Produkte' },
     ];
@@ -362,7 +369,8 @@ export function sortCategory(input, catRule = {}, opts = {}) {
   const today = opts.today || new Date().toISOString().slice(0, 10);
   const notes = [];
   const group = new Map();
-  const items = input.map((p, idx) => ({ ...p, idx, visible: p.status === 'ACTIVE' && p.published !== false }));
+  const parseTitle = makeParser([...new Set(input.map((x) => x.type))]);
+  const items = input.map((p, idx) => ({ ...p, idx, visible: p.status === 'ACTIVE' && p.published !== false, parsed: parseTitle(p.title, p.type) }));
   const soldOut = (p) => p.visible && !p.available;
 
   if (catRule.mode === 'curated') {
@@ -401,10 +409,10 @@ export function sortCategory(input, catRule = {}, opts = {}) {
       else block.push(p);
       group.set(id, `${v}${res.groups[id] && !/^Ausverkauft/.test(res.groups[id]) ? ` · ${res.groups[id]}` : ''}`);
     }
-    blocks.push({ vendor: v, items: block });
+    blocks.push({ vendor: v, items: block, lead: (rule.lead || []).map((x) => clean(x).toLowerCase()) });
   }
 
-  // Schaufenster: je Marke ein Produkt – Pin vor Neu vor Bestseller vor Team Pick vor dem ersten Produkt des Blocks; nur mit 6:7-Packshot.
+  // Schaufenster: je Marke ein Produkt – Pin vor Zugpferd vor Neu vor Bestseller vor Team Pick vor dem ersten Produkt; nur mit 6:7-Packshot.
   // Marken aus showcaseAlways (Diptyque) bekommen immer einen Platz; alle in der Markenfolge.
   const showcase = [];
   const visibleCount = items.filter((p) => p.visible && p.available).length;
@@ -413,7 +421,9 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     const good = (p) => !settings.imageRule || (p.image && goodImage(p.image, settings));
     const pinned = (p) => typeof p.pinUntil === 'string' && p.pinUntil >= today;
     const isNew = (p) => p.tags && (Array.isArray(p.tags) ? p.tags : [...p.tags]).some((t) => String(t).toLowerCase() === settings.neuTag);
-    const pickOf = (b) => b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => isNew(p) && good(p)) || b.items.find((p) => p.bestseller && good(p)) || b.items.find((p) => p.teamPick && good(p)) || b.items.find(good);
+    const isLead = (p, b) => b.lead.length > 0 && p.parsed && leadIndex(p, b.lead) < b.lead.length;
+    const pickOf = (b) => b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => isLead(p, b) && good(p)) || b.items.find((p) => isNew(p) && good(p))
+      || b.items.find((p) => p.bestseller && good(p)) || b.items.find((p) => p.teamPick && good(p)) || b.items.find(good);
     const eligible = blocks.map((b) => ({ b, pick: pickOf(b) })).filter((x) => x.pick);
     const always = new Set(sc.always.map(vendorKey));
     let chosen = eligible.slice(0, sc.size);
@@ -426,7 +436,7 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     for (const { b, pick } of chosen) {
       showcase.push(pick);
       b.items = b.items.filter((p) => p !== pick);
-      const why = pinned(pick) ? 'Pin' : isNew(pick) ? 'Neu' : pick.bestseller ? 'Bestseller' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
+      const why = pinned(pick) ? 'Pin' : isLead(pick, b) ? 'Zugpferd' : isNew(pick) ? 'Neu' : pick.bestseller ? 'Bestseller' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
       group.set(pick.id, `Schaufenster · ${b.vendor} · ${why}`);
     }
   }

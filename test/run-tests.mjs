@@ -129,6 +129,20 @@ await test('Schaufenster: Neu vor Bestseller', () => {
   const res = sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B', 'C'] }, { today: '2026-10-11' });
   assert.deepEqual(titles(res, list).slice(0, 3), ['Eau de Parfum A09', 'Eau de Parfum B03', 'Eau de Parfum C03']);
 });
+await test('Zugpferd: auf der Markenseite in jedem Block zuerst, im Schaufenster vor Neu und Bestseller', () => {
+  const brand = [P('Eau de Parfum Ambre Latte', 'Eau de Parfum'), P('Eau de Parfum Bois Impérial', 'Eau de Parfum'), P('Handcreme Ambre', 'Handcreme'), P('Handcreme Bois Impérial', 'Handcreme')];
+  assert.deepEqual(titles(sortCollection(brand, { pattern: 'B', lead: ['Bois Impérial'], blocks: ['Eau de Parfum', 'Handcreme'] }, { today: '2026-10-11' }), brand), ['Eau de Parfum Bois Impérial', 'Eau de Parfum Ambre Latte', 'Handcreme Bois Impérial', 'Handcreme Ambre']);
+  const list = [];
+  for (const b of ['EP', 'X', 'Y']) for (let i = 0; i < 15; i++) list.push(V(b, `Eau de Parfum ${b === 'EP' && i === 12 ? 'Bois Impérial' : `${b}${String(i).padStart(2, '0')}`}`, 'Eau de Parfum', { bestseller: i === 2, tags: i === 5 ? ['neu'] : [] }));
+  const rules = { EP: { pattern: 'C', lead: ['Bois Impérial'] } };
+  const res = sortCategory(list, { mode: 'blocks', brandOrder: ['EP', 'X', 'Y'] }, { today: '2026-10-11', brandRuleFor: (v) => rules[v] || { pattern: 'C' } });
+  assert.equal(titles(res, list)[0], 'Eau de Parfum Bois Impérial');
+  assert.match(res.groups[list[12].id], /Zugpferd/);
+});
+await test('Zugpferd mit Apostroph und Gedankenstrich (Goutal Noël)', () => {
+  const brand = [P('Duftkerze Ambre', 'Duftkerze'), P('Duftkerze Noël — Une Forêt d’Or', 'Duftkerze'), P('Duftkerze Noël — Une Forêt d’Or 300g', 'Duftkerze')];
+  assert.deepEqual(titles(sortCollection(brand, { pattern: 'C', lead: ['Noël — Une Forêt d’Or'] }, { today: '2026-10-11' }), brand), ['Duftkerze Noël — Une Forêt d’Or', 'Duftkerze Noël — Une Forêt d’Or 300g', 'Duftkerze Ambre']);
+});
 await test('Neu steht vorne im eigenen Markenblock, nicht ganz oben', () => {
   const list = [V('A', 'Eau de Parfum A1', 'Eau de Parfum'), V('B', 'Eau de Parfum B1', 'Eau de Parfum'), V('B', 'Eau de Parfum B2', 'Eau de Parfum', { tags: ['neu'] })];
   assert.deepEqual(titles(sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B'] }, { today: '2026-10-11' }), list), ['Eau de Parfum A1', 'Eau de Parfum B2', 'Eau de Parfum B1']);

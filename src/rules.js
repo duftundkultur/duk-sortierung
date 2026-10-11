@@ -11,6 +11,8 @@
 //
 // Blockangabe: 'Duftkerze' · ['Flüssigseife', 'Handbalsam'] (gemeinsamer Block, je Duft beisammen)
 //   · { types, mini: true|false, series: '<Serien-Handle>', title: '<Regex>', lead: ['Forêts'], order: 'scent'|'type'|'title'|'live', typeOrder: [...] }
+// Zugpferd: lead: ['Forêts'] auf Markenebene – dauerhaft zuerst in jedem Block und im Schaufenster der Kategorien bevorzugt
+//   (vor Neu und Bestseller, nur ein Pin geht vor). Statt eines „dauerhaften Pins“ (Matthias 11.10.).
 // Muster C: seriesLast: true → Hauptlinie A–Z, Serien als Block dahinter
 // Refills: 'block' (eigener Block nach Produktart) oder 'after-parent' (direkt hinter dem Mutterprodukt, Titel ohne „Refill“);
 //   auch je Produktart: { 'Duftkerzen Refill': 'after-parent', default: 'block' }
@@ -80,6 +82,7 @@ export const BRANDS = {
   },
   'essential-parfums': {
     pattern: 'B',
+    lead: ['Bois Impérial'], // Zugpferd (Matthias 11.10.): in jedem Block zuerst, im Schaufenster der Kategorien bevorzugt
     blocks: [
       { types: ['Eau de Parfum', 'Extrait de Parfum'], mini: false, label: 'Eau de Parfum 100 ml mit Extrait' },
       { types: ['Eau de Parfum'], mini: true, label: 'Eau de Parfum 10 ml' },
@@ -113,7 +116,7 @@ export const BRANDS = {
       'Rasierseife', 'Badesalz', 'Saunaöl',
     ],
   },
-  'christian-tortu': { pattern: 'B', lead: ['Forêts'], blocks: ['Duftkerze', 'Diffusor', 'Raumspray', 'Duftöl', 'Flüssigseife', 'Diffusor Refill'] },
+  'christian-tortu': { pattern: 'B', lead: ['Forêts'] /* Zugpferd */, blocks: ['Duftkerze', 'Diffusor', 'Raumspray', 'Duftöl', 'Flüssigseife', 'Diffusor Refill'] },
   'culti-milano': { pattern: 'B', blocks: ['Diffusor', 'Raumspray', 'Autoduft', 'Rattanstäbchen', 'Diffusor Refill'] },
   geodesis: { pattern: 'B', blocks: [{ types: ['Duftkerze'], label: 'Duftkerze' }, { types: ['Duftkerze'], title: '^Duftkerze Natur ', label: 'Duftkerze Natur' }, 'Raumspray', 'Diffusor', 'Diffusor Refill', 'Rattanstäbchen'] },
   'miller-et-bertaux': { pattern: 'B', blocks: ['Eau de Parfum', 'Duftkerze', 'Diffusor', 'Diffusor Refill'] },
