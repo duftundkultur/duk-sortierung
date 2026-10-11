@@ -148,6 +148,10 @@ export const BRANDS = {
   'giardini-di-toscana': { pattern: 'B', blocks: ['Eau de Parfum', 'Bodylotion'] },
   'la-compagnie-de-provence': { pattern: 'B', blocks: ['Flüssigseife', 'Handcreme', 'Seifen Refill'] },
   unifrom: { pattern: 'B', blocks: ['Roll-on Parfum', 'Räucherstäbchen'] },
+  'versatile-paris': { // nach Kategorie (Matthias, 11.10.): Extraits → Roll-on Eau de Parfum → Roll-on Extrait
+    pattern: 'B',
+    blocks: ['Extrait de Parfum', { types: ['Roll-on Parfum'], title: '^Roll-On Eau de Parfum', label: 'Roll-on Eau de Parfum' }, { types: ['Roll-on Parfum'], label: 'Roll-on Extrait' }],
+  },
   suite702: { pattern: 'B', blocks: [{ types: ['Wärmflasche'], order: 'live' }, { types: ['Augenkissen'], order: 'live' }] }, // im Block von Hand (Linien Puffy → Mini Puffy → XL, Farben)
 
   /* ---------- Sonderfälle ---------- */
@@ -161,7 +165,7 @@ export const BRANDS = {
   /* ---------- Muster C: alle übrigen Marken (ausdrücklich, damit der Bericht nicht nachfragt) ---------- */
   ...Object.fromEntries([
     'd-orsay', 'bon-parfumeur', 'meo-fusciuni', 'wienerblut', 'stora-skuggan', 'neomirage', 'astrophil-stella',
-    'theodoros-kalotinis', 'altaia', 'ciro', 'fragrantarium', 'maitre-parfumeur-et-gantier', 'eau-d-italie', 'versatile-paris', 'annick-goutal', 'le-plein-ete', 'j-b-filz', 'notch-code',
+    'theodoros-kalotinis', 'altaia', 'ciro', 'fragrantarium', 'maitre-parfumeur-et-gantier', 'eau-d-italie', 'annick-goutal', 'le-plein-ete', 'j-b-filz', 'notch-code',
     'ottomania', 'chi-chi-fan', 'mariage-freres', 'uchino', 'original-home', 'herb-earth', 'marvis', 'saltrain', 'archivist-gallery',
     'lapuan-kankurit', 'castelbel', 'eau-de-menton', 'calma-compania', 'green-petition', 'duft-und-kultur', 'yup-in-de-boom', 'inge-glasmanufaktur',
   ].map((h) => [h, { pattern: 'C' }])),
