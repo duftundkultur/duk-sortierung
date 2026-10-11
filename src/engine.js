@@ -404,20 +404,29 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     blocks.push({ vendor: v, items: block });
   }
 
-  // Schaufenster: Pin vor Bestseller vor dem ersten Produkt des Blocks; nur mit sauberem 6:7-Packshot
+  // Schaufenster: je Marke ein Produkt – Pin vor Bestseller vor Team Pick vor dem ersten Produkt des Blocks; nur mit 6:7-Packshot.
+  // Marken aus showcaseAlways (Diptyque) bekommen immer einen Platz; alle in der Markenfolge.
   const showcase = [];
   const visibleCount = items.filter((p) => p.visible && p.available).length;
-  const sc = catRule.showcase === false ? null : { min: settings.showcaseMin, size: settings.showcaseSize, ...(catRule.showcase || {}) };
+  const sc = catRule.showcase === false ? null : { min: settings.showcaseMin, size: settings.showcaseSize, always: settings.showcaseAlways || [], ...(catRule.showcase || {}) };
   if (sc && visibleCount >= sc.min) {
     const good = (p) => !settings.imageRule || (p.image && goodImage(p.image, settings));
     const pinned = (p) => typeof p.pinUntil === 'string' && p.pinUntil >= today;
-    for (const b of blocks) {
-      if (showcase.length >= sc.size) break;
-      const pick = b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => p.bestseller && good(p)) || b.items.find(good);
-      if (!pick) continue;
+    const pickOf = (b) => b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => p.bestseller && good(p)) || b.items.find((p) => p.teamPick && good(p)) || b.items.find(good);
+    const eligible = blocks.map((b) => ({ b, pick: pickOf(b) })).filter((x) => x.pick);
+    const always = new Set(sc.always.map(vendorKey));
+    let chosen = eligible.slice(0, sc.size);
+    for (const x of eligible) {
+      if (!always.has(vendorKey(x.b.vendor)) || chosen.includes(x)) continue;
+      if (chosen.length >= sc.size) { const drop = [...chosen].reverse().find((y) => !always.has(vendorKey(y.b.vendor))); if (!drop) continue; chosen = chosen.filter((y) => y !== drop); }
+      chosen.push(x);
+    }
+    chosen.sort((x, y) => blocks.indexOf(x.b) - blocks.indexOf(y.b));
+    for (const { b, pick } of chosen) {
       showcase.push(pick);
       b.items = b.items.filter((p) => p !== pick);
-      group.set(pick.id, `Schaufenster · ${b.vendor}`);
+      const why = pinned(pick) ? 'Pin' : pick.bestseller ? 'Bestseller' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
+      group.set(pick.id, `Schaufenster · ${b.vendor} · ${why}`);
     }
   }
   for (const p of soTail) group.set(p.id, `Ausverkauft · ${p.vendor}`);

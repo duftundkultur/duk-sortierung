@@ -30,7 +30,7 @@ Geschrieben wird nur, wenn sich etwas geändert hat. Der Motor schickt dabei mö
 Alle Kollektionen mit dem Titel „Kategorie: …“, also Produktarten, Duftfamilien, Primäre Noten, Geschenke und Neuheiten.
 
 - **Markenblöcke:** Die Marken stehen als Blöcke in der Markenfolge der Kategorie (`BRAND_ORDERS` in `src/rules.js`). Im Block gilt die Regel der Marke. Neu, Saison und Pin stehen vorne im eigenen Block.
-- **Schaufenster:** Ab 40 sichtbaren Produkten stehen vorne zwei Reihen, also 8 Plätze, mit je einem Produkt pro Marke. Gewählt wird der Pin, sonst ein Bestseller, sonst das erste Produkt mit 6:7-Packshot.
+- **Schaufenster:** Ab 40 sichtbaren Produkten stehen vorne zwei Reihen, also 8 Plätze, mit je einem Produkt pro Marke in der Markenfolge. Diptyque bekommt immer einen Platz (`showcaseAlways`). Gewählt wird der Pin, sonst ein Bestseller, sonst ein Team Pick, sonst das erste Produkt mit 6:7-Packshot.
 - **Ausverkauft** steht am Ende der Seite, in Markenfolge. Dahinter folgt, was nicht sichtbar ist.
 - **Welche Markenfolge gilt:** Für Parfums, Raumdüfte, Duftkerzen, Diffusoren, Räucherstäbchen, Pflege und Home ist sie fest hinterlegt. Alle anderen Kategorien, auch Duftfamilien und Noten, nehmen die Folge der Welt, aus der die meisten ihrer Produkte stammen.
 - **Handauswahl:** Bei den Geschenken, Damen- und Herrendüften und Weihnachten bleibt die Reihenfolge, nur Ausverkauftes rückt ans Ende.

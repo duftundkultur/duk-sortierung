@@ -30,6 +30,7 @@ export const SETTINGS = {
   imageTolerance: 0.01,
   showcaseMin: 40, // Kategorieseiten ab so vielen sichtbaren, verfügbaren Produkten bekommen ein Schaufenster
   showcaseSize: 8, // zwei Reihen
+  showcaseAlways: ['Diptyque'], // bekommt im Schaufenster immer einen Platz (Matthias 11.10.)
 };
 
 // Grundfolge der Produktarten (Muster C und für Arten ohne Block)

@@ -121,6 +121,7 @@ export function normalizeProduct(p, series) {
     status: p.status, published: Boolean(p.onlineStoreUrl), publishedAt: p.publishedAt,
     available: (p.variants?.nodes || []).some((v) => v.availableForSale),
     bestseller: list(p.badges?.value).includes('Bestseller'),
+    teamPick: list(p.badges?.value).includes('Team pick'),
     pinUntil: (p.pin?.value || '').slice(0, 10) || null,
     series: series.get(id) || [],
     image: img ? { w: img.width, h: img.height } : null,
