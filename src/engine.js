@@ -456,8 +456,9 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     blocks.push({ vendor: v, items: block, lead: (rule.lead || []).map((x) => clean(x).toLowerCase()) });
   }
 
-  // Schaufenster: je Marke ein Produkt – Pin vor Zugpferd vor Neu vor Bestseller vor Klassiker vor Team Pick vor dem ersten Produkt; nur mit 6:7-Packshot.
-  // Marken aus showcaseAlways (Diptyque) bekommen immer einen Platz; alle in der Markenfolge.
+  // Schaufenster: zuerst alle gepinnten Produkte (früheres „Pin bis“ zuerst), dann je übrige Marke ein Produkt –
+  // Zugpferd vor Neu vor Bestseller vor Klassiker vor Team Pick vor dem ersten Produkt; nur mit 6:7-Packshot, nie Refills.
+  // Marken aus showcaseAlways (Diptyque) bekommen immer einen Platz; die Nicht-Pins in der Markenfolge.
   const showcase = [];
   const visibleCount = items.filter((p) => p.visible && p.available).length;
   const sc = catRule.showcase === false ? null : { min: settings.showcaseMin, size: settings.showcaseSize, always: settings.showcaseAlways || [], ...(catRule.showcase || {}) };
@@ -474,16 +475,24 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     // Sets dürfen ins Schaufenster, zählen aber nicht als „neu“ (Matthias 11.10.: neues Diptyque-Set muss nicht vorne stehen)
     const pickOf = (b) => b.items.find((p) => pinned(p) && ok(p)) || b.items.find((p) => isLead(p, b) && ok(p)) || b.items.find((p) => isNew(p) && !isSet(p) && ok(p))
       || b.items.find((p) => p.bestseller && ok(p)) || b.items.find((p) => classicIds.has(p.id) && ok(p)) || b.items.find((p) => p.teamPick && ok(p)) || b.items.find(ok);
-    const eligible = blocks.map((b) => ({ b, pick: pickOf(b) })).filter((x) => x.pick);
+    // Gepinnte Produkte stehen ganz vorne, auch mehrere je Marke (Matthias 12.10.: Goutal Noël, Tortu Forêts groß und klein).
+    // Unter mehreren Pins: früheres „Pin bis“ zuerst, dann Markenfolge, dann Regelordnung der Marke.
+    const pins = [];
+    for (const b of blocks) for (const p of b.items) if (pinned(p) && ok(p)) pins.push({ b, pick: p });
+    pins.sort((x, y) => x.pick.pinUntil.localeCompare(y.pick.pinUntil) || blocks.indexOf(x.b) - blocks.indexOf(y.b) || x.b.items.indexOf(x.pick) - y.b.items.indexOf(y.pick));
+    const pinSlots = pins.slice(0, sc.size);
+    const pinnedBrands = new Set(pinSlots.map((x) => x.b));
+    const room = sc.size - pinSlots.length;
+    const eligible = blocks.filter((b) => !pinnedBrands.has(b)).map((b) => ({ b, pick: pickOf(b) })).filter((x) => x.pick);
     const always = new Set(sc.always.map(vendorKey));
-    let chosen = eligible.slice(0, sc.size);
+    let chosen = eligible.slice(0, room);
     for (const x of eligible) {
       if (!always.has(vendorKey(x.b.vendor)) || chosen.includes(x)) continue;
-      if (chosen.length >= sc.size) { const drop = [...chosen].reverse().find((y) => !always.has(vendorKey(y.b.vendor))); if (!drop) continue; chosen = chosen.filter((y) => y !== drop); }
+      if (chosen.length >= room) { const drop = [...chosen].reverse().find((y) => !always.has(vendorKey(y.b.vendor))); if (!drop) continue; chosen = chosen.filter((y) => y !== drop); }
       chosen.push(x);
     }
     chosen.sort((x, y) => blocks.indexOf(x.b) - blocks.indexOf(y.b));
-    for (const { b, pick } of chosen) {
+    for (const { b, pick } of [...pinSlots, ...chosen]) {
       showcase.push(pick);
       b.items = b.items.filter((p) => p !== pick);
       const why = pinned(pick) ? 'Pin' : isLead(pick, b) ? 'Zugpferd' : isNew(pick) && !isSet(pick) ? 'Neu' : pick.bestseller ? 'Bestseller' : classicIds.has(pick.id) ? 'Klassiker' : pick.teamPick ? 'Team Pick' : 'erstes Produkt';
