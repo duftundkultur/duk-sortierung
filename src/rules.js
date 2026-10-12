@@ -202,7 +202,8 @@ export const BRAND_ORDERS = {
   raeucherstaebchen: ['Unifrom', 'Tierra Zen', 'Herb & Earth', 'Esteban'],
   // wie live (Kategorie Parfums), dazu Matthias 11.10.: L.T. Piver und Dries Van Noten weit nach vorne (neu, spannend, gute Moods,
   // kleines Sortiment – sonst sieht man ewig nichts anderes), Carthusia weit nach hinten
-  parfum: ['L.T. Piver', 'Dries Van Noten', 'Astrophil & Stella', 'Stora Skuggan', 'BDK Parfums', 'd’Annam', 'Versatile Paris', 'Essential Parfums', 'WienerBlut', 'Aesop', 'Diptyque', 'D’Orsay',
+  // 12.10.: Essential Parfums vor Astrophil & Stella (Bois Impérial meistgesucht; fiel sonst wegen Diptyque aus dem Schaufenster)
+  parfum: ['L.T. Piver', 'Dries Van Noten', 'Essential Parfums', 'Astrophil & Stella', 'Stora Skuggan', 'BDK Parfums', 'd’Annam', 'Versatile Paris', 'WienerBlut', 'Aesop', 'Diptyque', 'D’Orsay',
     'Trudon', 'Meo Fusciuni', 'L’Artisan Parfumeur', 'Penhaligon’s', 'Obvious Parfums', 'Adamo Parfum', 'Altaia', 'Bon Parfumeur', 'Maître Parfumeur et Gantier',
     'Eau d’Italie', 'Giardini di Toscana', 'Theodoros Kalotinis', 'Nēomirage', 'Héritage Berbère', 'Nicolaï', 'L’Atelier Parfum', 'J.B. Filz', 'Le Plein Été',
     'Miller et Bertaux', 'Notch Code', 'Ciro', 'Fragrantarium', 'Claus Porto', 'Panier des Sens', 'Eau de Menton', 'Lothantique', 'Unifrom', 'Parfum d’Empire',

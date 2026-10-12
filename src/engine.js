@@ -466,10 +466,14 @@ export function sortCategory(input, catRule = {}, opts = {}) {
     const pinned = (p) => typeof p.pinUntil === 'string' && p.pinUntil >= today;
     const isNew = (p) => p.tags && (Array.isArray(p.tags) ? p.tags : [...p.tags]).some((t) => String(t).toLowerCase() === settings.neuTag);
     const isLead = (p, b) => b.lead.length > 0 && p.parsed && leadIndex(p, b.lead) < b.lead.length;
-    const isSet = (p) => isDiscovery(p.type, p.title) || /set$/i.test(p.type || '');
+    // Set auch am Titel erkennen („Set mit 3 Eaux de Parfum“ hat Produktart Eau de Parfum)
+    const isSet = (p) => isDiscovery(p.type, p.title) || /set$/i.test(p.type || '') || /\bset\b/i.test(p.title || '');
+    // Refills nie ins Schaufenster (Matthias 12.10.: Baies Refill, Raumduftspender Refill vorne)
+    const isRefill = (p) => /refill/i.test(p.type || '') || Boolean(p.parsed && p.parsed.refill);
+    const ok = (p) => good(p) && !isRefill(p);
     // Sets dürfen ins Schaufenster, zählen aber nicht als „neu“ (Matthias 11.10.: neues Diptyque-Set muss nicht vorne stehen)
-    const pickOf = (b) => b.items.find((p) => pinned(p) && good(p)) || b.items.find((p) => isLead(p, b) && good(p)) || b.items.find((p) => isNew(p) && !isSet(p) && good(p))
-      || b.items.find((p) => p.bestseller && good(p)) || b.items.find((p) => classicIds.has(p.id) && good(p)) || b.items.find((p) => p.teamPick && good(p)) || b.items.find(good);
+    const pickOf = (b) => b.items.find((p) => pinned(p) && ok(p)) || b.items.find((p) => isLead(p, b) && ok(p)) || b.items.find((p) => isNew(p) && !isSet(p) && ok(p))
+      || b.items.find((p) => p.bestseller && ok(p)) || b.items.find((p) => classicIds.has(p.id) && ok(p)) || b.items.find((p) => p.teamPick && ok(p)) || b.items.find(ok);
     const eligible = blocks.map((b) => ({ b, pick: pickOf(b) })).filter((x) => x.pick);
     const always = new Set(sc.always.map(vendorKey));
     let chosen = eligible.slice(0, sc.size);

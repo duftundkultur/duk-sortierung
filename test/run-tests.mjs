@@ -174,6 +174,15 @@ await test('Schaufenster: neues Set zählt nicht als Neu, Bestseller kommt vor',
   const res = sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B', 'C'] }, { today: '2026-10-11' });
   assert.equal(titles(res, list)[0], 'Eau de Parfum A06');
 });
+await test('Schaufenster: Set nur im Titel zählt nicht als Neu, Refills nie im Schaufenster', () => {
+  const list = [];
+  for (const b of ['A', 'B', 'C']) for (let i = 0; i < 15; i++) list.push(V(b, `Duftkerze ${b}${String(i).padStart(2, '0')}`, 'Duftkerze', { bestseller: i === 6 }));
+  list.unshift(V('A', 'Set mit 3 Eaux de Parfum', 'Eau de Parfum', { tags: ['neu'] }));
+  list.unshift(V('B', 'Duftkerze Baies Refill', 'Duftkerzen Refill', { tags: ['neu'] }));
+  list.unshift(V('C', 'Duftkerze C99 Refill', 'Duftkerzen Refill', { bestseller: true }));
+  const res = sortCategory(list, { mode: 'blocks', brandOrder: ['A', 'B', 'C'] }, { today: '2026-10-11' });
+  assert.deepEqual(titles(res, list).slice(0, 3), ['Duftkerze A06', 'Duftkerze B06', 'Duftkerze C06']);
+});
 await test('Neu: jüngster Veröffentlichungstag zuerst, am selben Tag Regelordnung', () => {
   const list = [P('Eau de Parfum Alt', 'Eau de Parfum', { tags: ['neu'], publishedAt: '2026-09-02T08:00:00Z' }), P('Eau de Parfum Zeta', 'Eau de Parfum', { tags: ['neu'], publishedAt: '2026-10-10T08:00:00Z' }),
     P('Eau de Parfum Beta', 'Eau de Parfum', { tags: ['neu'], publishedAt: '2026-10-10T09:00:00Z' }), P('Eau de Parfum Rest', 'Eau de Parfum')];
