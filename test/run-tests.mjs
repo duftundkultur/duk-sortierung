@@ -159,6 +159,13 @@ await test('Klassiker: Kurzname passt zur Linie (Aramara ↔ Aramara Stile), Dis
   const brand = [P('Raumspray Mediterranea', 'Raumspray'), P('Raumspray Aramara', 'Raumspray'), P('Diffusor Aramara Stile', 'Diffusor', { tags: ['klassiker'] })];
   assert.deepEqual(titles(sortCollection(brand, { pattern: 'B', blocks: ['Diffusor', 'Raumspray'] }, { today: '2026-10-11' }), brand), ['Diffusor Aramara Stile', 'Raumspray Aramara', 'Raumspray Mediterranea']);
 });
+await test('Gefäß vor den Füllungen im selben Block, auch wenn die Füllung ein Klassiker ist (Diptyque Diffusor)', () => {
+  const brand = [P('Raumduft­spender 34, Boulevard Saint-Germain Refill', 'Diffusor'), P('Raumduft­spender Figuier Refill', 'Diffusor'), P('Raumduft­spender Glasflakon, 100ml', 'Diffusor'),
+    P('Raumduft­spender Mimosa Refill', 'Diffusor'), P('Raumduft­spender Glasflakon, 200ml', 'Diffusor'), P('Duftkerze Figuier', 'Duftkerze', { tags: ['klassiker'] })];
+  const rule = { pattern: 'B', refills: { Diffusor: 'block', default: 'after-parent' }, blocks: ['Duftkerze', 'Diffusor'] };
+  assert.deepEqual(titles(sortCollection(brand, rule, { today: '2026-10-15' }), brand), ['Duftkerze Figuier', 'Raumduft­spender Glasflakon, 100ml', 'Raumduft­spender Glasflakon, 200ml',
+    'Raumduft­spender Figuier Refill', 'Raumduft­spender 34, Boulevard Saint-Germain Refill', 'Raumduft­spender Mimosa Refill']);
+});
 await test('Schaufenster: Bestseller vor Klassiker vor Team Pick', () => {
   const list = [];
   for (const b of ['A', 'B', 'C']) for (let i = 0; i < 15; i++) list.push(V(b, `Eau de Parfum ${b}${String(i).padStart(2, '0')}`, 'Eau de Parfum', {

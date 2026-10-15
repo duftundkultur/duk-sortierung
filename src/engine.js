@@ -117,11 +117,15 @@ function blockComparator(b, settings) {
       [x.isDS ? 0 : 1, y.isDS ? 0 : 1],
       [typeOrderRank(x.type), typeOrderRank(y.type)],
       [leadRank(x), leadRank(y)],
+    ];
+    // im Block erst die Produkte, dann ihre Füllungen – auch vor den Klassikern, sonst rutscht ein Gefäß zwischen die
+    // Füllungen (Diptyque: Glasflakon und Raumduft-Refills haben dieselbe Produktart „Diffusor“; Matthias 15.10.)
+    if (b.order !== 'live') keys.push([x.parsed.refill ? 1 : 0, y.parsed.refill ? 1 : 0]);
+    keys.push(
       [x.classic ? 0 : 1, y.classic ? 0 : 1], // Klassiker nach dem Zugpferd vorne im Block
       [x.seriesRank || 0, y.seriesRank || 0],
-    ];
-    if (b.order === 'live') keys.push([x.idx, y.idx]);
-    keys.push([x.parsed.refill ? 1 : 0, y.parsed.refill ? 1 : 0]); // im Block erst die Produkte, dann ihre Füllungen
+    );
+    if (b.order === 'live') keys.push([x.idx, y.idx], [x.parsed.refill ? 1 : 0, y.parsed.refill ? 1 : 0]);
     if (b.order === 'type') keys.push([inTypes(x.type), inTypes(y.type)]);
     for (const [a, c] of keys) if (a !== c) return a - c;
     if (b.order === 'title') return compareText(x.title, y.title) || x.idx - y.idx;
