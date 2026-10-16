@@ -171,12 +171,25 @@ export const BRANDS = {
 
   'annick-goutal': { pattern: 'C', lead: ['Noël — Une Forêt d’Or'] }, // Zugpferd, auch außerhalb der Weihnachtszeit (Matthias 11.10.)
 
+  // Yup in de boom: Christbaumschmuck in Themengruppen (Matthias 16.10.). Neue Motive stehen am Ende („Ohne Regel“, im Bericht),
+  // bis sie hier einer Gruppe zugeordnet sind. Namen = Motiv ohne „Christbaumschmuck“.
+  'yup-in-de-boom': {
+    pattern: 'B',
+    blocks: [
+      { label: 'Drinks', names: ['Espresso Martini', 'Negroni', 'Spritz', 'Dry Martini', 'Pornstar Martini', 'Bloody Mary', 'Coupe Olives', 'Natural Wine'] },
+      { label: 'Kaffee & Süßes', names: ['Cappuccino To Go', 'Coffee Machine', 'Oat Milk', 'Iced Matcha Latte', 'Matcha Whisk', 'Almond Croissant', 'Cinnamon Bun', 'Chocolate Cigarettes', 'Soft Serve Sundae', 'Just Married Cake'] },
+      { label: 'Design-Klassiker', names: ['Suitcase', 'Pan Orange', 'Cup', 'Rain Boots Yellow', 'City Car Orange', 'City Car Mint Green'] },
+      { label: 'Küche & Vorrat', names: ['Sourdough Starter', 'Sourdough Bread', 'Olive Oil', 'Crispy Chili Oil', 'Pickle Jar', 'Pistachio Paste'] },
+      { label: 'Augenzwinkern', names: ['Botox', 'Protein Shaker', 'Sattie', 'Labradoodle', 'Pregnancy Test (deutsch)', 'Pregnancy Test (englisch)'] },
+    ],
+  },
+
   /* ---------- Muster C: alle übrigen Marken (ausdrücklich, damit der Bericht nicht nachfragt) ---------- */
   ...Object.fromEntries([
     'd-orsay', 'bon-parfumeur', 'meo-fusciuni', 'wienerblut', 'stora-skuggan', 'neomirage', 'astrophil-stella',
     'theodoros-kalotinis', 'altaia', 'ciro', 'fragrantarium', 'maitre-parfumeur-et-gantier', 'eau-d-italie', 'le-plein-ete', 'j-b-filz', 'notch-code',
     'ottomania', 'chi-chi-fan', 'mariage-freres', 'uchino', 'original-home', 'herb-earth', 'marvis', 'saltrain', 'archivist-gallery',
-    'lapuan-kankurit', 'castelbel', 'eau-de-menton', 'calma-compania', 'green-petition', 'duft-und-kultur', 'yup-in-de-boom', 'inge-glasmanufaktur',
+    'lapuan-kankurit', 'castelbel', 'eau-de-menton', 'calma-compania', 'green-petition', 'duft-und-kultur', 'inge-glasmanufaktur',
   ].map((h) => [h, { pattern: 'C' }])),
 };
 

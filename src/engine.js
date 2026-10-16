@@ -65,6 +65,8 @@ function normBlock(spec, i) {
     order: spec.order || 'scent', // scent | type | title | live
     typeOrder: spec.typeOrder || null,
     max: spec.max || null,
+    // feste Namensliste: gehört in den Block, wer so heißt (Duft-/Motivname ohne Produktart), und steht in genau dieser Folge
+    names: spec.names ? spec.names.map((n) => clean(n).toLowerCase()) : null,
   };
   if (!b.label) {
     b.label = b.series ? `Serie ${b.series.join('/')}` : b.discovery ? 'Discovery Sets' : b.typeList.length ? b.typeList.join(' + ') : b.fragrance ? 'Düfte' : 'Weitere';
@@ -80,10 +82,11 @@ function matches(b, p, ctx) {
   if (b.mini !== undefined) { if (Boolean(p.parsed.mini) !== b.mini) return -1; score += 1; }
   if (b.series) { if (!p.series.some((s) => b.series.includes(s))) return -1; score += 2; }
   if (b.title) { if (!b.title.test(p.title.replace(/\u00ad/g, ''))) return -1; score += 2; }
+  if (b.names) { if (!b.names.includes(clean(p.parsed.scent).toLowerCase())) return -1; score += 2; }
   if (b.discovery !== undefined) { if (isDiscovery(p.type, p.title) !== b.discovery) return -1; score += 1; }
   if (b.fragrance) { if (!isFragrance(p.type)) return -1; }
   if (b.notInSeries) { if (p.series.some((s) => ctx.brandSeries.has(s))) return -1; score += 1; }
-  if (!b.types && !b.series && !b.title && b.discovery === undefined && !b.fragrance && !b.any) return -1;
+  if (!b.types && !b.series && !b.title && !b.names && b.discovery === undefined && !b.fragrance && !b.any) return -1;
   return score;
 }
 
@@ -110,12 +113,14 @@ function blockComparator(b, settings) {
   const leadRank = (p) => leadIndex(p, lead);
   const inTypes = (t) => { const i = b.typeList.indexOf(t); return i < 0 ? b.typeList.length : i; };
   const typeOrderRank = (t) => { if (!b.typeOrder) return 0; const i = b.typeOrder.indexOf(t); return i < 0 ? b.typeOrder.length : i; };
+  const nameRank = (p) => { if (!b.names) return 0; const i = b.names.indexOf(clean(p.parsed.scent).toLowerCase()); return i < 0 ? b.names.length : i; };
   const conc = (t) => { if (b.typeList.length > 1) return inTypes(t); const i = FRAGRANCE_TYPES.indexOf(t); return i < 0 ? FRAGRANCE_TYPES.length + typeRank(t) : i; };
   return (x, y) => {
     const keys = [
       [x.vis, y.vis],
       [x.isDS ? 0 : 1, y.isDS ? 0 : 1],
       [typeOrderRank(x.type), typeOrderRank(y.type)],
+      [nameRank(x), nameRank(y)],
       [leadRank(x), leadRank(y)],
     ];
     // im Block erst die Produkte, dann ihre Füllungen – auch vor den Klassikern, sonst rutscht ein Gefäß zwischen die

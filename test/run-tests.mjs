@@ -166,6 +166,14 @@ await test('Gefäß vor den Füllungen im selben Block, auch wenn die Füllung e
   assert.deepEqual(titles(sortCollection(brand, rule, { today: '2026-10-15' }), brand), ['Duftkerze Figuier', 'Raumduft­spender Glasflakon, 100ml', 'Raumduft­spender Glasflakon, 200ml',
     'Raumduft­spender Figuier Refill', 'Raumduft­spender 34, Boulevard Saint-Germain Refill', 'Raumduft­spender Mimosa Refill']);
 });
+await test('Namensliste: Themengruppen in fester Folge, Unbekanntes ans Ende mit Hinweis (Yup in de boom)', () => {
+  const brand = ['Spritz', 'Cup', 'Negroni', 'Botox', 'Suitcase', 'Unicorn'].map((x) => P(`Christbaumschmuck ${x}`, 'Christbaumschmuck'));
+  const rule = { pattern: 'B', blocks: [{ label: 'Drinks', names: ['Negroni', 'Spritz'] }, { label: 'Design', names: ['Suitcase', 'Cup'] }, { label: 'Augenzwinkern', names: ['Botox'] }] };
+  const res = sortCollection(brand, rule, { today: '2026-10-16' });
+  assert.deepEqual(titles(res, brand).map((t) => t.replace('Christbaumschmuck ', '')), ['Negroni', 'Spritz', 'Suitcase', 'Cup', 'Botox', 'Unicorn']);
+  assert.equal(res.groups[brand[0].id], 'Drinks');
+  assert.ok(res.notes.some((x) => x.kind === 'ohne-regel' && /Unicorn/.test(x.title)));
+});
 await test('Schaufenster: Bestseller vor Klassiker vor Team Pick', () => {
   const list = [];
   for (const b of ['A', 'B', 'C']) for (let i = 0; i < 15; i++) list.push(V(b, `Eau de Parfum ${b}${String(i).padStart(2, '0')}`, 'Eau de Parfum', {
